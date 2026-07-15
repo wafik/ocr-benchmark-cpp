@@ -1,0 +1,8 @@
+{
+  "name": "ocr-bench-cpp",
+  "version": "0.1.0",
+  "dependencies": [
+    "nlohmann-json",
+    "doctest"
+  ]
+}
