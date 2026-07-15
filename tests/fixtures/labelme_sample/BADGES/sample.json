@@ -1,0 +1,16 @@
+{
+  "version": "4.5.6",
+  "shapes": [
+    {
+      "label": "PROVINSI JAWA BARAT",
+      "points": [[10.0, 20.0], [110.0, 20.0], [110.0, 40.0], [10.0, 40.0]],
+      "shape_type": "polygon"
+    },
+    {
+      "label": "",
+      "points": [[5.0, 5.0], [15.0, 5.0], [15.0, 15.0], [5.0, 15.0]],
+      "shape_type": "polygon"
+    }
+  ],
+  "imagePath": "sample.jpg"
+}

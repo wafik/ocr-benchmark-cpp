@@ -28,4 +28,17 @@ add_executable(ocr_bench_tests
     tests/test_report_writer.cpp
 )
 target_link_libraries(ocr_bench_tests PRIVATE ocr_bench_core doctest::doctest)
-add_test(NAME ocr_bench_tests COMMAND ocr_bench_tests)
+add_test(NAME ocr_bench_tests COMMAND ocr_bench_tests
+    WORKING_DIRECTORY $<TARGET_FILE_DIR:ocr_bench_tests>
+)
+
+if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+    target_link_libraries(ocr_bench_tests PRIVATE stdc++fs)
+endif()
+
+# Copy test fixtures next to the test binary so relative paths in tests resolve.
+add_custom_command(TARGET ocr_bench_tests POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        ${CMAKE_SOURCE_DIR}/tests/fixtures
+        $<TARGET_FILE_DIR:ocr_bench_tests>/tests/fixtures
+)
