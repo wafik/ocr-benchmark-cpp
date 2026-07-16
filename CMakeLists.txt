@@ -9,6 +9,7 @@ find_package(doctest CONFIG REQUIRED)
 find_package(onnxruntime CONFIG REQUIRED)
 find_package(OpenCV CONFIG REQUIRED)
 find_package(CURL CONFIG REQUIRED)
+find_package(httplib CONFIG REQUIRED)
 
 add_library(rapidocronnx_vendor STATIC
     vendor/rapidocronnx/clipper.cpp
@@ -55,8 +56,10 @@ add_executable(ocr_bench_tests
     tests/test_run_status.cpp
     tests/test_runner_evaluate_page.cpp
     tests/test_runner_serialize.cpp
+    src/api/api_server.cpp
+    tests/test_api_health.cpp
 )
-target_link_libraries(ocr_bench_tests PRIVATE ocr_bench_core doctest::doctest)
+target_link_libraries(ocr_bench_tests PRIVATE ocr_bench_core doctest::doctest httplib::httplib)
 add_test(NAME ocr_bench_tests COMMAND ocr_bench_tests
     WORKING_DIRECTORY $<TARGET_FILE_DIR:ocr_bench_tests>
 )

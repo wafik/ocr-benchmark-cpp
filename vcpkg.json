@@ -6,6 +6,7 @@
     "doctest",
     "onnxruntime",
     "opencv",
-    "curl"
+    "curl",
+    "cpp-httplib"
   ]
 }
