@@ -6,6 +6,14 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 find_package(nlohmann_json CONFIG REQUIRED)
 find_package(doctest CONFIG REQUIRED)
+find_package(onnxruntime CONFIG REQUIRED)
+find_package(OpenCV CONFIG REQUIRED)
+find_package(CURL CONFIG REQUIRED)
+
+add_library(rapidocronnx_vendor STATIC
+    vendor/rapidocronnx/clipper.cpp
+)
+target_include_directories(rapidocronnx_vendor PUBLIC vendor/rapidocronnx)
 
 add_library(ocr_bench_core STATIC
     src/ocr_bench/matcher.cpp
