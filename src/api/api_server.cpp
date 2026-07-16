@@ -322,7 +322,7 @@ void ApiServer::registerResultsRoutes() {
         auto& registry = datasetRegistry();
         auto [activeKey, activeRoot] = resolveDatasetRoot();
         (void)activeRoot;
-        nlohmann::json out = nlohmann::json::object();
+        nlohmann::json datasets = nlohmann::json::array();
         for (auto& [key, rootPath] : registry) {
             auto cats = listCategories(rootPath);
             int nImages = 0, nLines = 0;
@@ -331,14 +331,20 @@ void ApiServer::registerResultsRoutes() {
                 nImages += pages.size();
                 for (auto& p : pages) nLines += p.lines.size();
             }
-            out[key] = {
+            std::string label = (key == "ind_cn") ? "IMG_OCR_IND_CN (labelme)"
+                               : (key == "new") ? "FUNSD-form" : key;
+            datasets.push_back({
+                {"key", key},
+                {"label", label},
+                {"format", key == "new" ? "funsd" : "labelme"},
+                {"root", rootPath},
                 {"n_categories", static_cast<int>(cats.size())},
                 {"n_images", nImages},
                 {"n_lines", nLines},
                 {"active", key == activeKey},
-            };
+            });
         }
-        res.set_content(out.dump(), "application/json");
+        res.set_content(nlohmann::json{{"datasets", datasets}, {"active", activeKey}}.dump(), "application/json");
     });
 
     server_->Get(R"(/api/datasets/([^/]+)/categories)", [](const httplib::Request& req, httplib::Response& res) {
@@ -350,7 +356,7 @@ void ApiServer::registerResultsRoutes() {
             return;
         }
         auto cats = listCategories(registry.at(key));
-        nlohmann::json out = nlohmann::json::array();
+        nlohmann::json categories = nlohmann::json::array();
         int totalImages = 0, totalLines = 0;
         for (auto& cat : cats) {
             auto pages = loadCategory(cat);
@@ -359,10 +365,10 @@ void ApiServer::registerResultsRoutes() {
             for (auto& p : pages) nLin += p.lines.size();
             totalImages += nImg;
             totalLines += nLin;
-            out.push_back({{"category", fs::path(cat).filename().string()}, {"n_images", nImg}, {"n_lines", nLin}});
+            categories.push_back({{"name", fs::path(cat).filename().string()}, {"n_images", nImg}, {"n_lines", nLin}});
         }
-        out.push_back({{"category", "All"}, {"n_images", totalImages}, {"n_lines", totalLines}});
-        res.set_content(out.dump(), "application/json");
+        categories.push_back({{"name", "All"}, {"n_images", totalImages}, {"n_lines", totalLines}});
+        res.set_content(nlohmann::json{{"categories", categories}, {"dataset", key}}.dump(), "application/json");
     });
 }
 
