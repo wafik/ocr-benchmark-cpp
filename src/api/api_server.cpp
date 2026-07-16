@@ -327,12 +327,14 @@ void ApiServer::registerResultsRoutes() {
                                : (key == "new") ? "FUNSD-form (testing + training)" : key;
             datasetKeys.push_back({{"key", key}, {"label", label}});
         }
+        // Round floats to avoid C++ precision artifacts (0.30000001192092896 → 0.3)
+        auto round2 = [](float v) -> double { return std::round(v * 100.0) / 100.0; };
         nlohmann::json out = {
             {"dataset", activeKey}, {"dataset_keys", datasetKeys},
-            {"iou_threshold", s.iouThreshold}, {"enable_preprocessing", s.enablePreprocessing},
+            {"iou_threshold", round2(s.iouThreshold)}, {"enable_preprocessing", s.enablePreprocessing},
             {"ocr_version", s.ocrVersion}, {"model_type", s.modelType},
-            {"det_box_thresh", s.detBoxThresh}, {"det_thresh", s.detThresh},
-            {"det_unclip_ratio", s.detUnclipRatio}, {"det_limit_side_len", s.detLimitSideLen},
+            {"det_box_thresh", round2(s.detBoxThresh)}, {"det_thresh", round2(s.detThresh)},
+            {"det_unclip_ratio", round2(s.detUnclipRatio)}, {"det_limit_side_len", s.detLimitSideLen},
             {"use_angle_cls", s.useAngleCls}, {"rec_batch_num", s.recBatchNum}, {"rec_img_width", s.recImgWidth},
             {"use_tensorrt", s.useTensorrt}, {"cuda_available", detectCuda()},
             {"tensorrt_available", false},

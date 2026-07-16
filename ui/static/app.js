@@ -1863,7 +1863,7 @@ async function openRunDetail(id) {
       const diff = typeof cur === "boolean"
         ? cur !== !!def
         : Math.abs(Number(cur) - Number(def)) > 1e-9;
-      const display = typeof cur === "boolean" ? (cur ? "true" : "false") : cur;
+      const display = typeof cur === "boolean" ? (cur ? "true" : "false") : (typeof cur === "number" ? Math.round(cur * 100) / 100 : cur);
       const tag = diff
         ? `<span class="history-tag history-tag-override">override</span>`
         : "";

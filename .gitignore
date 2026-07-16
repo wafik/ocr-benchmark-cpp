@@ -3,3 +3,14 @@ reports/
 models/
 *.onnx
 *.tmp
+*.wav
+*.csv
+*.png
+*.cpp
+superpowers/
+docs/
+plan.md
+IMG_OCR_IND_CN/
+vendor/piper/libpiper/build*/
+vendor/piper/libpiper/lib/
+vendor/piper/libpiper/download/

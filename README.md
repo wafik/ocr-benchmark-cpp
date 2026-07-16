@@ -2,6 +2,15 @@
 
 Rewrite dari `ocr-benchmark` (Python) ke C++. Performa lebih tinggi, dependency lebih ringan.
 
+## Fitur
+
+- **OCR Engine**: DbNet (detection) + AngleNet (classification) + CrnnNet (recognition)
+- **TTS Engine**: Piper TTS (Bahasa Indonesia + English)
+- **HTTP Dashboard**: cpp-httplib server dengan UI yang sama dengan Python
+- **CLI Tools**: Benchmark runner, model downloader
+- **TensorRT Support**: Auto-detection + FP16 + engine caching
+- **Auth Middleware**: Basic Auth configurable
+
 ## Arsitektur
 
 ```
@@ -13,6 +22,10 @@ cpp/rebuild/
 ├── tests/                 # Unit tests (doctest)
 ├── ui/                    # Dashboard UI (verbatim from Python)
 ├── models/                # ONNX models
+│   ├── piper-voices/      # TTS voice models
+│   │   ├── id/            # Indonesian voice
+│   │   └── en/            # English voice
+│   └── trt_engines/       # TensorRT cache (auto-generated)
 └── reports/               # Generated reports
 ```
 
@@ -22,6 +35,7 @@ cpp/rebuild/
 - Visual Studio 2022 (MSVC)
 - CMake 3.20+
 - vcpkg
+- (Optional) NVIDIA GPU + TensorRT for acceleration
 
 ### Build Commands
 
@@ -46,11 +60,11 @@ cmake --build build/windows-x64 --config Debug
 ```powershell
 cd build/windows-x64/Release
 
-# Start server
-./ocr-bench-serve.exe --port 8765
+# Start server (default port 8765)
+./ocr-bench-serve.exe
 
-# Open browser
-# http://127.0.0.1:8765
+# Start with custom settings
+./ocr-bench-serve.exe --port 8080 --auth-password mysecret
 ```
 
 **Options:**
@@ -68,6 +82,9 @@ cd build/windows-x64/Release
 
 # Run specific category
 ./ocr-bench-run.exe --category "BILLS"
+
+# Run with TensorRT acceleration
+./ocr-bench-run.exe --use-tensorrt
 
 # Run with custom settings
 ./ocr-bench-run.exe --ocr-version PP-OCRv6 --model-type tiny --dataset ind_cn
@@ -92,7 +109,7 @@ cd build/windows-x64/Release
 
 ### OCR Run
 - `POST /api/run` → Start benchmark run
-  - Params: `category`, `ocr_version`, `model_type`, `force`
+  - Params: `category`, `ocr_version`, `model_type`, `force`, `use_tensorrt`
 - `GET /api/summary` → Overall summary
 - `GET /api/results/{category}` → Per-category results
 - `GET /api/image/{category}/{filename}` → Source image
@@ -103,12 +120,14 @@ cd build/windows-x64/Release
 - `GET /api/datasets` → Dataset registry
 - `GET /api/datasets/{key}/categories` → Category list
 
-### TTS (Stub - not yet implemented)
-- `GET /api/tts?text=...` → Synthesize text (503)
+### TTS (Piper)
+- `GET /api/tts?text=...` → Synthesize text to WAV
+- `POST /api/tts` → JSON body `{"text": "..."}`
 - `POST /api/tts/run` → Start TTS benchmark
+- `GET /api/tts/progress` → TTS progress
 - `GET /api/tts/summary` → TTS summary
 
-### Combined (Stub - not yet implemented)
+### Combined (OCR + TTS)
 - `POST /api/combined/run` → Start combined benchmark
 - `GET /api/combined/progress` → Progress
 - `GET /api/combined/summary` → Summary
@@ -117,12 +136,13 @@ cd build/windows-x64/Release
 ## Testing
 
 ```powershell
-# Run all tests
+# Run all tests (89 tests, 298 assertions)
 cd build/windows-x64/Release
 ./ocr_bench_tests.exe
 
 # Run specific test
 ./ocr_bench_tests.exe --test-case="*OCR*"
+./ocr_bench_tests.exe --test-case="*TTS*"
 
 # Run with output
 ./ocr_bench_tests.exe -s
@@ -130,29 +150,46 @@ cd build/windows-x64/Release
 
 ## Models
 
-Models located in `models/` directory:
-- `PP-OCRv6_det.onnx` - Text detection (1.7MB)
-- `PP-OCRv6_cls.onnx` - Angle classification (572KB)
-- `PP-OCRv6_rec_tiny.onnx` - Text recognition (4.3MB)
-- `PP-OCRv6_rec_tiny_dict.txt` - Character dictionary
+### OCR Models (models/)
+| Model | Size | Purpose |
+|-------|------|---------|
+| `PP-OCRv6_det.onnx` | 1.7MB | Text detection |
+| `PP-OCRv6_cls.onnx` | 572KB | Angle classification |
+| `PP-OCRv6_rec_tiny.onnx` | 4.3MB | Text recognition |
+| `PP-OCRv6_rec_tiny_dict.txt` | 26KB | Character dictionary |
 
-Models copied from Jetson Nano: `/home/nvidia/ocr-benchmark/.venv/lib/python3.12/site-packages/rapidocr/models/`
+### TTS Models (models/piper-voices/)
+| Voice | Language | Size |
+|-------|----------|------|
+| `id_ID-news_tts-medium.onnx` | 🇮🇩 Indonesia | 60MB |
+| `en_US-kristin-medium.onnx` | 🇺🇸 English | 60MB |
 
 ## Performance
 
-OCR processing on AMD Ryzen 5 7600:
-- **Detection**: ~50ms
-- **Classification**: ~10ms
-- **Recognition**: ~200ms
-- **Total per image**: ~250ms (tiny model, CPU)
+### OCR (AMD Ryzen 5 7600, CPU)
+- Detection: ~50ms
+- Classification: ~10ms
+- Recognition: ~200ms
+- **Total per image: ~250ms** (tiny model)
+
+### TTS (Piper, CPU)
+- RTF: 0.089 (11x faster than real-time)
+- Synthesis: 67ms for 0.75s audio
+- Sample rate: 22050 Hz
+
+### TensorRT Acceleration
+- First run: ~30s model compilation (cached to `models/trt_engines/`)
+- Subsequent runs: ~2-3x faster inference
+- FP16 enabled for better performance
 
 ## Test Results
 
 ```
-88/88 tests passed
-295/295 assertions passed
+89/89 tests passed
+298/298 assertions passed
 OCR E2E: 31 lines detected from real receipt image
 Confidence: 0.75-0.86
+TTS: Indonesian voice working, 67ms synthesis
 ```
 
 ## Project Structure
@@ -183,15 +220,22 @@ Confidence: 0.75-0.86
 - cli/run_benchmark.cpp - CLI runner
 - cli/download_models.cpp - CLI downloader
 
+### Plan 5: TTS
+- tts_engine.cpp - Piper TTS wrapper
+- tts_runner.cpp - TTS benchmark orchestrator
+- combined_runner.cpp - OCR+TTS combined runner
+
 ## Dependencies
 
-- onnxruntime 1.23.2
+- onnxruntime 1.23.2 (with TensorRT/CUDA support)
 - OpenCV 4.12.0
 - nlohmann-json 3.12.0
 - cpp-httplib
 - cxxopts
 - curl 8.21.0
 - doctest 2.5.3
+- piper-tts (libpiper)
+- espeak-ng (phonemization)
 
 ## License
 
