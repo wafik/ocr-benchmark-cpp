@@ -27,7 +27,7 @@ struct Settings {
     int recImgWidth = 320;
 
     // Inference backend
-    bool useTensorrt = false;
+    bool useTensorrt = true;
     std::string trtCacheDir = "models/trt_engines";
 
     // Runner
