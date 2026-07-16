@@ -337,7 +337,7 @@ void ApiServer::registerResultsRoutes() {
             {"det_unclip_ratio", round2(s.detUnclipRatio)}, {"det_limit_side_len", s.detLimitSideLen},
             {"use_angle_cls", s.useAngleCls}, {"rec_batch_num", s.recBatchNum}, {"rec_img_width", s.recImgWidth},
             {"use_tensorrt", s.useTensorrt}, {"cuda_available", detectCuda()},
-            {"tensorrt_available", false},
+            {"tensorrt_available", detectTensorrt()},
             {"tts_cuda_available", s.useCudaTts}, {"tts_source", s.ttsSource},
             {"serve_host", s.serveHost}, {"serve_port", s.servePort},
             {"auth_password", s.authPassword},
