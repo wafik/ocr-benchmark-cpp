@@ -1,0 +1,22 @@
+#pragma once
+// TTS benchmark runner. Port of tts_runner.py.
+
+#include <string>
+#include <vector>
+
+#include <nlohmann/json.hpp>
+
+namespace ocr_bench {
+
+struct TTSRunOptions {
+    std::string datasetKey;
+    std::string voicePath;    // empty = use Settings default
+    bool useCuda = false;
+    bool verbose = true;
+};
+
+/// Run TTS benchmark: synthesize all GT text lines, measure RTF.
+/// Returns the overall JSON summary.
+nlohmann::json ttsRun(const TTSRunOptions& options);
+
+} // namespace ocr_bench

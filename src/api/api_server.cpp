@@ -15,6 +15,9 @@
 #include "ocr_bench/runner.hpp"
 #include "ocr_bench/run_status.hpp"
 #include "ocr_bench/sysmon.hpp"
+#include "ocr_bench/tts_engine.hpp"
+#include "ocr_bench/tts_runner.hpp"
+#include "ocr_bench/combined_runner.hpp"
 
 namespace fs = std::filesystem;
 
@@ -366,11 +369,27 @@ void ApiServer::registerResultsRoutes() {
 // --- TTS + Combined ---
 
 TTSEngine* ApiServer::getTtsEngine(httplib::Response& res) {
-    // Stub: TTS engine not yet implemented. Returns 503.
-    // TODO: Implement when TTSEngine is available (Plan 5).
-    res.status = 503;
-    res.set_content(nlohmann::json{{"detail", "TTS engine not yet implemented"}}.dump(), "application/json");
-    return nullptr;
+    std::lock_guard<std::mutex> lock(ttsEngineMutex_);
+    if (ttsEngine_) return ttsEngine_;
+
+    Settings s = loadSettings();
+    std::string voicePath = (fs::path(packageRoot()) / s.piperVoicePath).string();
+    if (!fs::exists(voicePath)) {
+        res.status = 503;
+        res.set_content(nlohmann::json{{"detail",
+            "TTS voice model not found at " + voicePath +
+            ". Run: ocr-bench-download"}}.dump(), "application/json");
+        return nullptr;
+    }
+    std::string espeakPath = (fs::path(packageRoot()) / "vendor/piper/libpiper/build_final/install/espeak-ng-data").string();
+    try {
+        ttsEngine_ = new TTSEngine(voicePath, espeakPath);
+    } catch (const std::exception& e) {
+        res.status = 503;
+        res.set_content(nlohmann::json{{"detail", std::string("TTS voice failed to load: ") + e.what()}}.dump(), "application/json");
+        return nullptr;
+    }
+    return ttsEngine_;
 }
 
 void ApiServer::registerTtsCombinedRoutes() {
@@ -378,7 +397,17 @@ void ApiServer::registerTtsCombinedRoutes() {
     server_->Get("/api/tts", [this](const httplib::Request& req, httplib::Response& res) {
         std::string text = req.has_param("text") ? req.get_param_value("text") : "";
         if (text.empty()) { res.status = 400; return; }
-        getTtsEngine(res); // stub returns 503
+        auto* engine = getTtsEngine(res);
+        if (!engine) return;
+        auto [pcm, result] = engine->synthesize(text);
+        auto wav = TTSEngine::pcmToWav(pcm, result.sampleRate);
+        res.set_header("X-Synth-Ms", std::to_string(result.synthMs));
+        res.set_header("X-Audio-Seconds", std::to_string(result.audioSeconds));
+        res.set_header("X-Rtf", std::to_string(result.rtf()));
+        res.set_header("X-Chars", std::to_string(result.nChars));
+        res.set_header("X-First-Chunk-Ms", std::to_string(result.firstChunkMs));
+        res.set_header("X-Chars-Per-Sec", std::to_string(result.charsPerSec()));
+        res.set_content(std::string(wav.begin(), wav.end()), "audio/wav");
     });
 
     // POST /api/tts — JSON body {"text": "..."}
@@ -387,7 +416,14 @@ void ApiServer::registerTtsCombinedRoutes() {
         if (body.is_discarded() || !body.contains("text")) { res.status = 400; return; }
         std::string text = body["text"].get<std::string>();
         if (text.empty()) { res.status = 400; return; }
-        getTtsEngine(res); // stub returns 503
+        auto* engine = getTtsEngine(res);
+        if (!engine) return;
+        auto [pcm, result] = engine->synthesize(text);
+        auto wav = TTSEngine::pcmToWav(pcm, result.sampleRate);
+        res.set_header("X-Synth-Ms", std::to_string(result.synthMs));
+        res.set_header("X-Audio-Seconds", std::to_string(result.audioSeconds));
+        res.set_header("X-Rtf", std::to_string(result.rtf()));
+        res.set_content(std::string(wav.begin(), wav.end()), "audio/wav");
     });
 
     // POST /api/tts/run — background TTS benchmark
@@ -402,7 +438,12 @@ void ApiServer::registerTtsCombinedRoutes() {
                 return;
             }
         }
-        // TODO: dispatch ttsRun() in background thread when implemented
+        TTSRunOptions opts;
+        if (req.has_param("dataset")) opts.datasetKey = req.get_param_value("dataset");
+        opts.verbose = false;
+        std::thread([opts]() {
+            try { ttsRun(opts); } catch (...) {}
+        }).detach();
         res.set_content(nlohmann::json{{"ok", true}, {"started", true}}.dump(), "application/json");
     });
 
@@ -438,7 +479,16 @@ void ApiServer::registerTtsCombinedRoutes() {
                 return;
             }
         }
-        // TODO: dispatch combinedRun() in background thread when implemented
+        CombinedRunOptions opts;
+        if (req.has_param("category")) opts.ocrOptions.onlyCategories = {req.get_param_value("category")};
+        if (req.has_param("dataset")) opts.ocrOptions.datasetKey = req.get_param_value("dataset");
+        if (req.has_param("ocr_version")) opts.ocrOptions.ocrVersion = req.get_param_value("ocr_version");
+        if (req.has_param("model_type")) opts.ocrOptions.modelType = req.get_param_value("model_type");
+        opts.ocrOptions.verbose = false;
+        opts.ttsOptions.verbose = false;
+        std::thread([opts]() {
+            try { combinedRun(opts); } catch (...) {}
+        }).detach();
         res.set_content(nlohmann::json{{"ok", true}, {"started", true}}.dump(), "application/json");
     });
 
@@ -472,7 +522,6 @@ void ApiServer::registerTtsCombinedRoutes() {
                 runs = nlohmann::json::parse(in);
             } catch (...) {}
         }
-        // Reverse so newest is first
         std::reverse(runs.begin(), runs.end());
         res.set_content(nlohmann::json{{"runs", runs}}.dump(), "application/json");
     });

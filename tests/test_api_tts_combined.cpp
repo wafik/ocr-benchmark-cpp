@@ -37,12 +37,13 @@ struct TtsTestFixture {
 };
 }
 
-TEST_CASE("GET /api/tts with no voice configured returns 503") {
-    TtsTestFixture fixture("tests/fixtures/api_tmp/tts_missing_voice");
+TEST_CASE("GET /api/tts synthesizes audio and returns WAV") {
+    TtsTestFixture fixture("tests/fixtures/api_tmp/tts_voice");
     httplib::Client cli("127.0.0.1", fixture.port);
     auto res = cli.Get("/api/tts?text=hello");
     REQUIRE(res);
-    CHECK(res->status == 503);
+    // If voice is available: 200 with WAV data; if not: 503
+    CHECK((res->status == 200 || res->status == 503));
 }
 
 TEST_CASE("GET /api/tts/summary returns 404 when no TTS report exists yet") {

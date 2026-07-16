@@ -32,9 +32,23 @@ add_library(ocr_bench_core STATIC
     src/ocr_bench/sysmon.cpp
     src/ocr_bench/run_status.cpp
     src/ocr_bench/runner.cpp
+    src/ocr_bench/tts_engine.cpp
+    src/ocr_bench/tts_runner.cpp
+    src/ocr_bench/combined_runner.cpp
 )
 target_include_directories(ocr_bench_core PUBLIC include)
+target_include_directories(ocr_bench_core PUBLIC
+    ${CMAKE_SOURCE_DIR}/vendor/piper/libpiper/include
+    ${CMAKE_SOURCE_DIR}/vendor/piper/libpiper/build_final/espeak_ng-install/include
+)
+target_sources(ocr_bench_core PRIVATE ${CMAKE_SOURCE_DIR}/vendor/piper/libpiper/src/piper.cpp)
+target_compile_definitions(ocr_bench_core PRIVATE BUILDING_LIBPIPER)
 target_link_libraries(ocr_bench_core PUBLIC nlohmann_json::nlohmann_json ${OpenCV_LIBS} rapidocronnx_vendor onnxruntime::onnxruntime CURL::libcurl)
+target_link_directories(ocr_bench_core PUBLIC
+    ${CMAKE_SOURCE_DIR}/vendor/piper/libpiper/build_final/espeak_ng-install/lib
+    ${CMAKE_SOURCE_DIR}/vendor/piper/libpiper/build_final/espeak_ng/src/espeak_ng_external-build/src/ucd-tools/Release
+)
+target_link_libraries(ocr_bench_core PUBLIC espeak-ng ucd)
 target_include_directories(ocr_bench_core PUBLIC ${OpenCV_INCLUDE_DIRS})
 
 enable_testing()
@@ -63,6 +77,7 @@ add_executable(ocr_bench_tests
     tests/test_api_tts_combined.cpp
     tests/test_api_auth.cpp
     tests/test_ocr_e2e.cpp
+    tests/test_tts_piper.cpp
 )
 target_link_libraries(ocr_bench_tests PRIVATE ocr_bench_core doctest::doctest httplib::httplib)
 add_test(NAME ocr_bench_tests COMMAND ocr_bench_tests
