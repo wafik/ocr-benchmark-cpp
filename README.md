@@ -53,6 +53,86 @@ cmake --build build/windows-x64 --config Release
 cmake --build build/windows-x64 --config Debug
 ```
 
+### Build on Jetson Nano (aarch64, apt packages instead of vcpkg)
+
+vcpkg builds everything from source and is impractical on a Jetson. Instead this
+target uses apt for OpenCV/CURL/nlohmann-json/doctest/cxxopts/cpp-httplib, plus two
+vendored dependencies that apt can't provide:
+
+- **onnxruntime**: the pip wheel (`pip install onnxruntime`) ships only the runtime
+  `.so`, no C++ headers — vendor the official prebuilt release instead.
+- **espeak-ng**: Ubuntu/Jetson ship 1.51, which lacks `espeak_TextToPhonemesWithTerminator`
+  (required by `vendor/piper/libpiper/src/piper.cpp`). Build it from source at the same
+  commit `vendor/piper/libpiper`'s own vcpkg build pins.
+
+One-time setup (run once per machine):
+
+```bash
+sudo apt install -y libopencv-dev libcurl4-openssl-dev nlohmann-json3-dev \
+    doctest-dev cxxopts-dev libcpp-httplib-dev git cmake build-essential
+
+# onnxruntime: vendor the linux-aarch64 release (match the version installed via pip)
+mkdir -p vendor/onnxruntime && cd vendor/onnxruntime
+curl -sL -o ort.tgz https://github.com/microsoft/onnxruntime/releases/download/v1.27.0/onnxruntime-linux-aarch64-1.27.0.tgz
+tar xzf ort.tgz && rm ort.tgz && mv onnxruntime-linux-aarch64-1.27.0 dist
+cd ../..
+
+# espeak-ng: build from source (same commit vendor/piper/libpiper pins)
+mkdir -p vendor/espeak-ng-src && cd vendor/espeak-ng-src
+git clone https://github.com/espeak-ng/espeak-ng.git .
+git checkout 212928b394a96e8fd2096616bfd54e17845c48f6
+cmake -B build -DCMAKE_INSTALL_PREFIX=$PWD/install -DCMAKE_BUILD_TYPE=Release \
+    -DBUILD_SHARED_LIBS=OFF -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
+    -DUSE_ASYNC=OFF -DUSE_MBROLA=OFF -DUSE_LIBSONIC=OFF -DUSE_LIBPCAUDIO=OFF \
+    -DUSE_KLATT=OFF -DUSE_SPEECHPLAYER=OFF -DEXTRA_cmn=ON -DEXTRA_ru=ON
+cmake --build build -j$(nproc) --target install
+cd ../..
+```
+
+Then build normally, either via the preset or directly:
+
+```bash
+cmake --preset jetson
+cmake --build build/jetson -j$(nproc)
+
+# or without the preset:
+cmake -B build/jetson -DCMAKE_BUILD_TYPE=Release -DOCR_BENCH_USE_SYSTEM_DEPS=ON
+cmake --build build/jetson -j$(nproc)
+```
+
+Run tests: `./build/jetson/ocr_bench_tests` (fixtures are copied next to the binary
+automatically; model-dependent tests need `models/` populated via `ocr-bench-download`).
+
+### Run as a systemd service (port 8765)
+
+To keep the dashboard running across reboots/disconnects, install it as a systemd
+user unit instead of running it in a terminal:
+
+```ini
+# /etc/systemd/system/ocr-bench-serve.service
+[Unit]
+Description=OCR Bench HTTP Dashboard
+After=network.target
+
+[Service]
+Type=simple
+User=nvidia
+WorkingDirectory=/home/nvidia/ocr-benchmark-cpp
+ExecStart=/home/nvidia/ocr-benchmark-cpp/build/jetson/ocr-bench-serve --host 0.0.0.0 --port 8765 --ui-root /home/nvidia/ocr-benchmark-cpp/ui --reports-root /home/nvidia/ocr-benchmark-cpp/reports
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
+```
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable --now ocr-bench-serve
+sudo systemctl status ocr-bench-serve
+journalctl -u ocr-bench-serve -f   # follow logs
+```
+
 ## Running
 
 ### 1. HTTP Dashboard Server

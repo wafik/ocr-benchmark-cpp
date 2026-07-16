@@ -6,11 +6,12 @@ models/
 *.wav
 *.csv
 *.png
-*.cpp
-superpowers/
+.superpowers/
 docs/
 plan.md
 IMG_OCR_IND_CN/
 vendor/piper/libpiper/build*/
 vendor/piper/libpiper/lib/
 vendor/piper/libpiper/download/
+vendor/onnxruntime/
+vendor/espeak-ng-src/

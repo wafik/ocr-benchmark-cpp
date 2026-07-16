@@ -14,6 +14,15 @@
       "binaryDir": "${sourceDir}/build/linux-x64",
       "toolchainFile": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
       "cacheVariables": { "CMAKE_BUILD_TYPE": "Release" }
+    },
+    {
+      "name": "jetson",
+      "generator": "Unix Makefiles",
+      "binaryDir": "${sourceDir}/build/jetson",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "OCR_BENCH_USE_SYSTEM_DEPS": "ON"
+      }
     }
   ]
 }
