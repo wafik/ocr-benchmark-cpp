@@ -7,6 +7,7 @@
     "onnxruntime",
     "opencv",
     "curl",
-    "cpp-httplib"
+    "cpp-httplib",
+    "cxxopts"
   ]
 }

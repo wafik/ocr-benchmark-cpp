@@ -77,3 +77,12 @@ add_custom_command(TARGET ocr_bench_tests POST_BUILD
         ${CMAKE_SOURCE_DIR}/models
         $<TARGET_FILE_DIR:ocr_bench_tests>/models
 )
+
+# CLI executables
+find_package(cxxopts CONFIG REQUIRED)
+
+add_executable(ocr-bench-run cli/run_benchmark.cpp)
+target_link_libraries(ocr-bench-run PRIVATE ocr_bench_core cxxopts::cxxopts)
+
+add_executable(ocr-bench-download cli/download_models.cpp)
+target_link_libraries(ocr-bench-download PRIVATE ocr_bench_core cxxopts::cxxopts)
