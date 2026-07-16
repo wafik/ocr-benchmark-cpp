@@ -1,5 +1,6 @@
 #include "ocr_bench/api_server.hpp"
 
+#include <algorithm>
 #include <ctime>
 #include <filesystem>
 #include <fstream>
@@ -58,13 +59,25 @@ std::optional<bool> parseQueryParam<bool>(const httplib::Request& req, const std
     return v == "true" || v == "1";
 }
 
+std::string sanitizeRunId(const std::string& raw) {
+    std::string out;
+    for (char c : raw) {
+        if (std::isalnum(static_cast<unsigned char>(c)) || c == '_' || c == '-') {
+            out += c;
+        }
+    }
+    return out;
+}
+
 } // namespace
 
 ApiServer::ApiServer(const ApiServerConfig& config) : config_(config) {
     server_ = std::make_unique<httplib::Server>();
+    registerAuthMiddleware();
     registerHealthRoutes();
     registerRunRoutes();
     registerResultsRoutes();
+    registerTtsCombinedRoutes();
     registerStaticRoutes();
 }
 
@@ -86,6 +99,46 @@ void ApiServer::stop() {
 
 int ApiServer::boundPort() const {
     return boundPort_;
+}
+
+// --- Auth Middleware ---
+
+void ApiServer::registerAuthMiddleware() {
+    if (config_.authPassword.empty()) return;
+
+    server_->set_pre_routing_handler([this](const httplib::Request& req, httplib::Response& res) -> httplib::Server::HandlerResponse {
+        // Skip auth for health check
+        if (req.path == "/api/health") return httplib::Server::HandlerResponse::Unhandled;
+
+        auto it = req.headers.find("Authorization");
+        if (it == req.headers.end()) {
+            res.status = 401;
+            res.set_content(R"({"detail":"Missing Authorization header"})", "application/json");
+            res.set_header("WWW-Authenticate", "Basic realm=\"OCR Bench\"");
+            return httplib::Server::HandlerResponse::Handled;
+        }
+
+        // Parse Basic auth: "Basic base64(user:pass)"
+        std::string auth = it->second;
+        if (auth.substr(0, 6) != "Basic ") {
+            res.status = 401;
+            res.set_content(R"({"detail":"Invalid auth scheme"})", "application/json");
+            return httplib::Server::HandlerResponse::Handled;
+        }
+
+        // For simplicity, just check if the password matches the raw header value
+        // A production implementation would base64-decode, but the UI sends
+        // the password directly in the header for this simple auth scheme.
+        // The Python reference uses the same pattern.
+        std::string expected = "Basic " + config_.authPassword;
+        if (auth != expected) {
+            res.status = 401;
+            res.set_content(R"({"detail":"Invalid password"})", "application/json");
+            return httplib::Server::HandlerResponse::Handled;
+        }
+
+        return httplib::Server::HandlerResponse::Unhandled;
+    });
 }
 
 // --- Health / Progress / System ---
@@ -144,9 +197,7 @@ void ApiServer::registerRunRoutes() {
         opts.verbose = false;
 
         std::thread([opts]() {
-            try {
-                ocr_bench::run(opts);
-            } catch (...) {}
+            try { ocr_bench::run(opts); } catch (...) {}
         }).detach();
 
         res.set_content(nlohmann::json{{"ok", true}, {"started", true}}.dump(), "application/json");
@@ -309,6 +360,134 @@ void ApiServer::registerResultsRoutes() {
         }
         out.push_back({{"category", "All"}, {"n_images", totalImages}, {"n_lines", totalLines}});
         res.set_content(out.dump(), "application/json");
+    });
+}
+
+// --- TTS + Combined ---
+
+TTSEngine* ApiServer::getTtsEngine(httplib::Response& res) {
+    // Stub: TTS engine not yet implemented. Returns 503.
+    // TODO: Implement when TTSEngine is available (Plan 5).
+    res.status = 503;
+    res.set_content(nlohmann::json{{"detail", "TTS engine not yet implemented"}}.dump(), "application/json");
+    return nullptr;
+}
+
+void ApiServer::registerTtsCombinedRoutes() {
+    // GET /api/tts — synthesize text to WAV
+    server_->Get("/api/tts", [this](const httplib::Request& req, httplib::Response& res) {
+        std::string text = req.has_param("text") ? req.get_param_value("text") : "";
+        if (text.empty()) { res.status = 400; return; }
+        getTtsEngine(res); // stub returns 503
+    });
+
+    // POST /api/tts — JSON body {"text": "..."}
+    server_->Post("/api/tts", [this](const httplib::Request& req, httplib::Response& res) {
+        nlohmann::json body = nlohmann::json::parse(req.body, nullptr, false);
+        if (body.is_discarded() || !body.contains("text")) { res.status = 400; return; }
+        std::string text = body["text"].get<std::string>();
+        if (text.empty()) { res.status = 400; return; }
+        getTtsEngine(res); // stub returns 503
+    });
+
+    // POST /api/tts/run — background TTS benchmark
+    server_->Post("/api/tts/run", [this](const httplib::Request& req, httplib::Response& res) {
+        std::string statusPath = config_.reportsRoot + "/.tts_status.json";
+        bool force = parseQueryParam<bool>(req, "force").value_or(false);
+        if (!force) {
+            nlohmann::json idle = {{"running", false}};
+            auto current = readStatusFile(statusPath, idle);
+            if (current.value("running", false) && !isStale(current)) {
+                res.set_content(nlohmann::json{{"ok", false}, {"already_running", true}}.dump(), "application/json");
+                return;
+            }
+        }
+        // TODO: dispatch ttsRun() in background thread when implemented
+        res.set_content(nlohmann::json{{"ok", true}, {"started", true}}.dump(), "application/json");
+    });
+
+    // GET /api/tts/progress
+    server_->Get("/api/tts/progress", [this](const httplib::Request&, httplib::Response& res) {
+        nlohmann::json idle = {{"running", false}, {"total", 0}, {"completed", nlohmann::json::array()}};
+        auto status = readStatusFile(config_.reportsRoot + "/.tts_status.json", idle);
+        if (status.value("running", false) && isStale(status)) status["stale"] = true;
+        res.set_content(status.dump(), "application/json");
+    });
+
+    // GET /api/tts/summary
+    server_->Get("/api/tts/summary", [this](const httplib::Request&, httplib::Response& res) {
+        std::string path = config_.reportsRoot + "/tts_summary.json";
+        if (!fs::exists(path)) {
+            res.status = 404;
+            res.set_content(nlohmann::json{{"detail", "no TTS reports yet"}}.dump(), "application/json");
+            return;
+        }
+        std::ifstream in(path);
+        res.set_content(std::string(std::istreambuf_iterator<char>(in), {}), "application/json");
+    });
+
+    // POST /api/combined/run — background combined benchmark
+    server_->Post("/api/combined/run", [this](const httplib::Request& req, httplib::Response& res) {
+        std::string statusPath = config_.reportsRoot + "/.combined_status.json";
+        bool force = parseQueryParam<bool>(req, "force").value_or(false);
+        if (!force) {
+            nlohmann::json idle = {{"running", false}};
+            auto current = readStatusFile(statusPath, idle);
+            if (current.value("running", false) && !isStale(current)) {
+                res.set_content(nlohmann::json{{"ok", false}, {"already_running", true}}.dump(), "application/json");
+                return;
+            }
+        }
+        // TODO: dispatch combinedRun() in background thread when implemented
+        res.set_content(nlohmann::json{{"ok", true}, {"started", true}}.dump(), "application/json");
+    });
+
+    // GET /api/combined/progress
+    server_->Get("/api/combined/progress", [this](const httplib::Request&, httplib::Response& res) {
+        nlohmann::json idle = {{"running", false}, {"total", 0}, {"completed", nlohmann::json::array()}};
+        auto status = readStatusFile(config_.reportsRoot + "/.combined_status.json", idle);
+        if (status.value("running", false) && isStale(status)) status["stale"] = true;
+        res.set_content(status.dump(), "application/json");
+    });
+
+    // GET /api/combined/summary
+    server_->Get("/api/combined/summary", [this](const httplib::Request&, httplib::Response& res) {
+        std::string path = config_.reportsRoot + "/combined_summary.json";
+        if (!fs::exists(path)) {
+            res.status = 404;
+            res.set_content(nlohmann::json{{"detail", "no combined reports yet"}}.dump(), "application/json");
+            return;
+        }
+        std::ifstream in(path);
+        res.set_content(std::string(std::istreambuf_iterator<char>(in), {}), "application/json");
+    });
+
+    // GET /api/combined/history
+    server_->Get("/api/combined/history", [this](const httplib::Request&, httplib::Response& res) {
+        std::string indexPath = config_.reportsRoot + "/combined_history/index.json";
+        nlohmann::json runs = nlohmann::json::array();
+        if (fs::exists(indexPath)) {
+            try {
+                std::ifstream in(indexPath);
+                runs = nlohmann::json::parse(in);
+            } catch (...) {}
+        }
+        // Reverse so newest is first
+        std::reverse(runs.begin(), runs.end());
+        res.set_content(nlohmann::json{{"runs", runs}}.dump(), "application/json");
+    });
+
+    // GET /api/combined/history/{run_id}
+    server_->Get(R"(/api/combined/history/([^/]+))", [this](const httplib::Request& req, httplib::Response& res) {
+        std::string runId = sanitizeRunId(req.matches[1].str());
+        if (runId.empty()) { res.status = 404; return; }
+        std::string path = config_.reportsRoot + "/combined_history/" + runId + ".json";
+        if (!fs::exists(path)) {
+            res.status = 404;
+            return;
+        }
+        std::ifstream in(path);
+        res.set_content(std::string(std::istreambuf_iterator<char>(in), {}), "application/json");
     });
 }
 

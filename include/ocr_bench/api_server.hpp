@@ -2,9 +2,10 @@
 // HTTP dashboard server. Mirrors Python's api.py route-for-route.
 
 #include <memory>
+#include <mutex>
 #include <string>
 
-namespace httplib { class Server; }
+#include <httplib.h>
 
 namespace ocr_bench {
 
@@ -15,6 +16,8 @@ struct ApiServerConfig {
     std::string host = "127.0.0.1";
     int port = 8765;
 };
+
+class TTSEngine; // forward declare
 
 class ApiServer {
 public:
@@ -32,11 +35,21 @@ public:
 
 private:
     void registerHealthRoutes();
+    void registerRunRoutes();
+    void registerResultsRoutes();
+    void registerTtsCombinedRoutes();
     void registerStaticRoutes();
+    void registerAuthMiddleware();
+
+    TTSEngine* getTtsEngine(httplib::Response& res);
 
     ApiServerConfig config_;
     std::unique_ptr<httplib::Server> server_;
     int boundPort_ = 0;
+
+    // Lazy-loaded TTS engine (Plan 5)
+    TTSEngine* ttsEngine_ = nullptr;
+    std::mutex ttsEngineMutex_;
 };
 
 } // namespace ocr_bench
