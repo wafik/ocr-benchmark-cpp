@@ -22,9 +22,11 @@ add_library(ocr_bench_core STATIC
     src/ocr_bench/paths.cpp
     src/ocr_bench/config.cpp
     src/ocr_bench/report_writer.cpp
+    src/ocr_bench/ocr_utils.cpp
 )
 target_include_directories(ocr_bench_core PUBLIC include)
-target_link_libraries(ocr_bench_core PUBLIC nlohmann_json::nlohmann_json)
+target_link_libraries(ocr_bench_core PUBLIC nlohmann_json::nlohmann_json ${OpenCV_LIBS} rapidocronnx_vendor)
+target_include_directories(ocr_bench_core PUBLIC ${OpenCV_INCLUDE_DIRS})
 
 enable_testing()
 add_executable(ocr_bench_tests
@@ -34,6 +36,7 @@ add_executable(ocr_bench_tests
     tests/test_paths.cpp
     tests/test_config.cpp
     tests/test_report_writer.cpp
+    tests/test_ocr_utils.cpp
 )
 target_link_libraries(ocr_bench_tests PRIVATE ocr_bench_core doctest::doctest)
 add_test(NAME ocr_bench_tests COMMAND ocr_bench_tests
