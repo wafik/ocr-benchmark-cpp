@@ -154,9 +154,12 @@ cd build/windows-x64/Release
 | Model | Size | Purpose |
 |-------|------|---------|
 | `PP-OCRv6_det.onnx` | 1.7MB | Text detection |
+| `PP-OCRv6_det_small.onnx` | 9.5MB | Text detection (better accuracy) |
+| `PP-OCRv6_det_medium.onnx` | 59.2MB | Text detection (best accuracy) |
 | `PP-OCRv6_cls.onnx` | 572KB | Angle classification |
 | `PP-OCRv6_rec_tiny.onnx` | 4.3MB | Text recognition |
-| `PP-OCRv6_rec_tiny_dict.txt` | 26KB | Character dictionary |
+| `PP-OCRv6_rec_small.onnx` | 20.3MB | Text recognition (better accuracy) |
+| `PP-OCRv6_rec_medium.onnx` | 73.1MB | Text recognition (best accuracy) |
 
 ### TTS Models (models/piper-voices/)
 | Voice | Language | Size |
@@ -189,7 +192,7 @@ cd build/windows-x64/Release
 298/298 assertions passed
 OCR E2E: 31 lines detected from real receipt image
 Confidence: 0.75-0.86
-TTS: Indonesian voice working, 67ms synthesis
+TTS: Indonesian voice working, 67ms synthesis, RTF 0.089
 ```
 
 ## Project Structure
