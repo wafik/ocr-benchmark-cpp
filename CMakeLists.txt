@@ -58,6 +58,8 @@ add_executable(ocr_bench_tests
     tests/test_runner_serialize.cpp
     src/api/api_server.cpp
     tests/test_api_health.cpp
+    tests/test_api_run.cpp
+    tests/test_api_summary_results.cpp
 )
 target_link_libraries(ocr_bench_tests PRIVATE ocr_bench_core doctest::doctest httplib::httplib)
 add_test(NAME ocr_bench_tests COMMAND ocr_bench_tests
