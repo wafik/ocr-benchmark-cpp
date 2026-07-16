@@ -613,6 +613,35 @@ void ApiServer::registerTtsCombinedRoutes() {
 void ApiServer::registerStaticRoutes() {
     if (!config_.uiRoot.empty()) {
         server_->set_mount_point("/", config_.uiRoot);
+
+        // Map clean URLs to HTML files: /tts → tts.html, /combined → combined.html
+        server_->Get("/tts", [this](const httplib::Request&, httplib::Response& res) {
+            std::string path = config_.uiRoot + "/tts.html";
+            if (fs::exists(path)) {
+                std::ifstream in(path);
+                res.set_content(std::string(std::istreambuf_iterator<char>(in), {}), "text/html");
+            } else {
+                res.status = 404;
+            }
+        });
+        server_->Get("/combined", [this](const httplib::Request&, httplib::Response& res) {
+            std::string path = config_.uiRoot + "/combined.html";
+            if (fs::exists(path)) {
+                std::ifstream in(path);
+                res.set_content(std::string(std::istreambuf_iterator<char>(in), {}), "text/html");
+            } else {
+                res.status = 404;
+            }
+        });
+        server_->Get("/datasets", [this](const httplib::Request&, httplib::Response& res) {
+            std::string path = config_.uiRoot + "/datasets.html";
+            if (fs::exists(path)) {
+                std::ifstream in(path);
+                res.set_content(std::string(std::istreambuf_iterator<char>(in), {}), "text/html");
+            } else {
+                res.status = 404;
+            }
+        });
     }
 }
 
