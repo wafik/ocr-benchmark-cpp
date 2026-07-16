@@ -451,7 +451,7 @@ TTSEngine* ApiServer::getTtsEngine(httplib::Response& res) {
             ". Run: ocr-bench-download"}}.dump(), "application/json");
         return nullptr;
     }
-    std::string espeakPath = (fs::path(packageRoot()) / "vendor/piper/libpiper/build_final/install/espeak-ng-data").string();
+    std::string espeakPath = (fs::path(packageRoot()) / "models/espeak-ng-data").string();
     try {
         ttsEngine_ = new TTSEngine(voicePath, espeakPath);
     } catch (const std::exception& e) {

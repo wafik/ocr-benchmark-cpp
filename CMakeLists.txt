@@ -39,14 +39,14 @@ add_library(ocr_bench_core STATIC
 target_include_directories(ocr_bench_core PUBLIC include)
 target_include_directories(ocr_bench_core PUBLIC
     ${CMAKE_SOURCE_DIR}/vendor/piper/libpiper/include
-    ${CMAKE_SOURCE_DIR}/vendor/piper/libpiper/build_final/espeak_ng-install/include
+    ${CMAKE_SOURCE_DIR}/vendor/piper/libpiper/build/espeak_ng-install/include
 )
 target_sources(ocr_bench_core PRIVATE ${CMAKE_SOURCE_DIR}/vendor/piper/libpiper/src/piper.cpp)
 target_compile_definitions(ocr_bench_core PRIVATE BUILDING_LIBPIPER)
 target_link_libraries(ocr_bench_core PUBLIC nlohmann_json::nlohmann_json ${OpenCV_LIBS} rapidocronnx_vendor onnxruntime::onnxruntime CURL::libcurl)
 target_link_directories(ocr_bench_core PUBLIC
-    ${CMAKE_SOURCE_DIR}/vendor/piper/libpiper/build_final/espeak_ng-install/lib
-    ${CMAKE_SOURCE_DIR}/vendor/piper/libpiper/build_final/espeak_ng/src/espeak_ng_external-build/src/ucd-tools/Release
+    ${CMAKE_SOURCE_DIR}/vendor/piper/libpiper/build/espeak_ng-install/lib
+    ${CMAKE_SOURCE_DIR}/vendor/piper/libpiper/build/espeak_ng/src/espeak_ng_external-build/src/ucd-tools/Release
 )
 target_link_libraries(ocr_bench_core PUBLIC espeak-ng ucd)
 target_include_directories(ocr_bench_core PUBLIC ${OpenCV_INCLUDE_DIRS})

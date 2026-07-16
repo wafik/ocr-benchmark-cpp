@@ -35,7 +35,7 @@ std::string nowIso8601() {
 }
 
 std::string espeakDataPath() {
-    return packageRoot() + "/vendor/piper/libpiper/build_final/install/espeak-ng-data";
+    return packageRoot() + "/models/espeak-ng-data";
 }
 
 } // namespace
