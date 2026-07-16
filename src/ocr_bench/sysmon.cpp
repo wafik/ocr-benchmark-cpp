@@ -184,12 +184,69 @@ std::vector<GpuSample> readGpusNvidiaSmi() {
     return gpus;
 }
 
+std::vector<GpuSample> readGpusTegrastats() {
+    // tegrastats runs continuously; capture one snapshot then kill it.
+    std::string out = runCommandCaptureStdout(
+        "timeout 2 tegrastats --interval 1000 2>&1 | head -1"
+    );
+    std::vector<GpuSample> gpus;
+    if (out.empty()) return gpus;
+
+    GpuSample g;
+    g.index = 0;
+    g.name = "Tegra GPU";
+
+    // Parse GR3D_FREQ X% for utilization
+    {
+        auto pos = out.find("GR3D_FREQ");
+        if (pos != std::string::npos) {
+            auto pct = out.find('%', pos);
+            if (pct != std::string::npos) {
+                // walk backwards from '%' to find the number
+                auto start = out.rfind(' ', pct);
+                if (start != std::string::npos) {
+                    g.utilPercent = std::stof(out.substr(start + 1, pct - start - 1));
+                }
+            }
+        }
+    }
+
+    // Parse gpu@XX.XC/XX.XC for temperature
+    {
+        auto pos = out.find("gpu@");
+        if (pos != std::string::npos) {
+            auto at = out.find('@', pos) + 1;
+            auto slash = out.find('/', at);
+            if (slash != std::string::npos) {
+                g.tempC = std::stof(out.substr(at, slash - at));
+            }
+        }
+    }
+
+    // Jetson shares RAM with GPU — report total system RAM as a rough proxy
+    {
+        auto pos = out.find("RAM ");
+        if (pos != std::string::npos) {
+            auto slash = out.find('/', pos + 4);
+            if (slash != std::string::npos) {
+                g.memTotalMb = std::stof(out.substr(pos + 4, slash - pos - 4));
+            }
+        }
+    }
+
+    gpus.push_back(g);
+    return gpus;
+}
+
 std::vector<GpuSample> readGpus() {
     try {
-        return readGpusNvidiaSmi();
-    } catch (...) {
-        return {};
-    }
+        auto gpus = readGpusNvidiaSmi();
+        if (!gpus.empty()) return gpus;
+    } catch (...) {}
+    try {
+        return readGpusTegrastats();
+    } catch (...) {}
+    return {};
 }
 
 std::optional<float> readDiskPercent() {

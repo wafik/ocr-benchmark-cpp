@@ -19,8 +19,12 @@ if(OCR_BENCH_USE_SYSTEM_DEPS)
     find_package(OpenCV REQUIRED)
     find_package(CURL REQUIRED)
 
-    # onnxruntime pip wheel ships no C++ headers -> vendor the official release tarball.
-    set(ORT_DIR ${CMAKE_SOURCE_DIR}/vendor/onnxruntime/dist)
+    # onnxruntime pip wheel ships no C++ headers -> vendor the official release tarball for
+    # compilation headers. However the aarch64 release tarball is CPU-only. For CUDA/TensorRT
+    # support, link against the Python venv's libonnxruntime (CUDA-enabled build) at runtime.
+    # Headers are backward-compatible between 1.27.0 and 1.28.0.
+    set(ORT_INCLUDE_DIR ${CMAKE_SOURCE_DIR}/vendor/onnxruntime/dist)
+    set(ORT_LIB_DIR /home/nvidia/ocr-benchmark/.venv/lib/python3.12/site-packages/onnxruntime/capi)
 
     # System espeak-ng (1.51 on Ubuntu/Jetson) lacks espeak_TextToPhonemesWithTerminator,
     # which piper.cpp requires. Built from source at the same commit vendor/piper/libpiper
@@ -78,11 +82,11 @@ target_link_libraries(ocr_bench_core PUBLIC
 target_include_directories(ocr_bench_core PUBLIC ${OpenCV_INCLUDE_DIRS})
 
 if(OCR_BENCH_USE_SYSTEM_DEPS)
-    target_include_directories(ocr_bench_core PUBLIC ${ORT_DIR}/include)
-    target_link_directories(ocr_bench_core PUBLIC ${ORT_DIR}/lib ${ESPEAKNG_DIR}/lib)
+    target_include_directories(ocr_bench_core PUBLIC ${ORT_INCLUDE_DIR}/include)
+    target_link_directories(ocr_bench_core PUBLIC ${ORT_LIB_DIR} ${ESPEAKNG_DIR}/lib)
     target_link_libraries(ocr_bench_core PUBLIC onnxruntime)
     set_target_properties(ocr_bench_core PROPERTIES
-        INSTALL_RPATH "${ORT_DIR}/lib"
+        INSTALL_RPATH "${ORT_LIB_DIR}"
         BUILD_WITH_INSTALL_RPATH TRUE
     )
 else()
@@ -138,7 +142,7 @@ if(NOT OCR_BENCH_USE_SYSTEM_DEPS)
 else()
     add_test(NAME ocr_bench_tests COMMAND ocr_bench_tests)
     set_target_properties(ocr_bench_tests PROPERTIES
-        INSTALL_RPATH "${ORT_DIR}/lib"
+        INSTALL_RPATH "${ORT_LIB_DIR}"
         BUILD_WITH_INSTALL_RPATH TRUE
     )
 endif()
@@ -170,7 +174,7 @@ if(OCR_BENCH_USE_SYSTEM_DEPS)
     target_link_libraries(ocr-bench-serve PRIVATE cpp-httplib)
     foreach(tgt ocr-bench-run ocr-bench-download ocr-bench-serve)
         set_target_properties(${tgt} PROPERTIES
-            INSTALL_RPATH "${ORT_DIR}/lib"
+            INSTALL_RPATH "${ORT_LIB_DIR}"
             BUILD_WITH_INSTALL_RPATH TRUE
         )
     endforeach()

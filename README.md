@@ -60,7 +60,9 @@ target uses apt for OpenCV/CURL/nlohmann-json/doctest/cxxopts/cpp-httplib, plus 
 vendored dependencies that apt can't provide:
 
 - **onnxruntime**: the pip wheel (`pip install onnxruntime`) ships only the runtime
-  `.so`, no C++ headers — vendor the official prebuilt release instead.
+  `.so`, no C++ headers — vendor the official prebuilt release for headers. However
+  the aarch64 release is CPU-only; the CUDA/TensorRT-enabled libraries are linked
+  at build time from the Python venv (`ocr-benchmark/.venv/.../onnxruntime/capi/`).
 - **espeak-ng**: Ubuntu/Jetson ship 1.51, which lacks `espeak_TextToPhonemesWithTerminator`
   (required by `vendor/piper/libpiper/src/piper.cpp`). Build it from source at the same
   commit `vendor/piper/libpiper`'s own vcpkg build pins.
