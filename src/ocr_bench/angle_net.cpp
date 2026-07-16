@@ -47,10 +47,24 @@ RawAngle scoreToAngle(const std::vector<float>& outputData) {
 AngleNet::AngleNet() = default;
 AngleNet::~AngleNet() = default;
 
-void AngleNet::loadModel(const std::string& modelPath, bool useCuda) {
+void AngleNet::loadModel(const std::string& modelPath, bool useCuda,
+                         bool useTensorrt, const std::string& trtCacheDir) {
     sessionOptions_.SetInterOpNumThreads(0);
     sessionOptions_.SetIntraOpNumThreads(0);
     sessionOptions_.SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_ALL);
+
+    if (useTensorrt) {
+        OrtTensorRTProviderOptions trtOpts{};
+        trtOpts.device_id = 0;
+        trtOpts.trt_max_workspace_size = 1ULL << 30;
+        trtOpts.trt_fp16_enable = 1;
+        trtOpts.trt_engine_cache_enable = 1;
+        if (!trtCacheDir.empty()) {
+            trtOpts.trt_engine_cache_path = trtCacheDir.c_str();
+        }
+        sessionOptions_.AppendExecutionProvider_TensorRT(trtOpts);
+    }
+
     if (useCuda) {
         OrtCUDAProviderOptions cudaOptions;
         cudaOptions.device_id = 0;

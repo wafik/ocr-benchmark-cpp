@@ -25,7 +25,8 @@ public:
     CrnnNet(const CrnnNet&) = delete;
     CrnnNet& operator=(const CrnnNet&) = delete;
 
-    void loadModel(const std::string& modelPath, bool useCuda = false);
+    void loadModel(const std::string& modelPath, bool useCuda = false,
+                   bool useTensorrt = false, const std::string& trtCacheDir = "");
 
     /// RapidOcrOnnx's original keys-loading mechanism: one character per
     /// line in a plain text file. On success, prepends "#" (CTC blank) and

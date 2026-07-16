@@ -21,10 +21,10 @@ public:
     DbNet(const DbNet&) = delete;
     DbNet& operator=(const DbNet&) = delete;
 
-    /// Load the DBNet ONNX model. `useCuda` appends the CUDA execution
-    /// provider (falls back silently to CPU if CUDA isn't available in this
-    /// ONNXRuntime build — see engine.cpp's _detectCuda()).
-    void loadModel(const std::string& modelPath, bool useCuda = false);
+    /// Load the DBNet ONNX model. `useCuda` appends CUDA EP,
+    /// `useTensorrt` appends TensorRT EP with FP16 + profile shapes.
+    void loadModel(const std::string& modelPath, bool useCuda = false,
+                   bool useTensorrt = false, const std::string& trtCacheDir = "");
 
     /// Run detection on `src` (already resized to `scale.dstWidth x
     /// scale.dstHeight` internally). Returns text boxes in `src`'s original

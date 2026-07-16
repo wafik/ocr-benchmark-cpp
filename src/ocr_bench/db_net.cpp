@@ -84,10 +84,25 @@ std::vector<RawTextBox> findRsBoxes(
 DbNet::DbNet() = default;
 DbNet::~DbNet() = default;
 
-void DbNet::loadModel(const std::string& modelPath, bool useCuda) {
+void DbNet::loadModel(const std::string& modelPath, bool useCuda,
+                       bool useTensorrt, const std::string& trtCacheDir) {
     sessionOptions_.SetInterOpNumThreads(0);
     sessionOptions_.SetIntraOpNumThreads(0);
     sessionOptions_.SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_ALL);
+
+    // TensorRT must be appended BEFORE CUDA (ORT tries providers in order)
+    if (useTensorrt) {
+        OrtTensorRTProviderOptions trtOpts{};
+        trtOpts.device_id = 0;
+        trtOpts.trt_max_workspace_size = 1ULL << 30; // 1GB
+        trtOpts.trt_fp16_enable = 1;
+        trtOpts.trt_engine_cache_enable = 1;
+        if (!trtCacheDir.empty()) {
+            trtOpts.trt_engine_cache_path = trtCacheDir.c_str();
+        }
+        sessionOptions_.AppendExecutionProvider_TensorRT(trtOpts);
+    }
+
     if (useCuda) {
         OrtCUDAProviderOptions cudaOptions;
         cudaOptions.device_id = 0;

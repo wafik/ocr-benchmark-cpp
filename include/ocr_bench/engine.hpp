@@ -37,12 +37,18 @@ struct EngineConfig {
     int detLimitSideLen = 1536;
     bool useAngleCls = false;
     bool useCuda = false;
+    bool useTensorrt = false;
+    std::string trtCacheDir = "models/trt_engines";
     std::string modelsDir = "models";
 };
 
 /// Auto-detect CUDA execution provider availability. Mirrors
 /// engine.py::_detect_cuda().
 bool detectCuda();
+
+/// Auto-detect TensorRT execution provider availability. Mirrors
+/// engine.py::_detect_tensorrt().
+bool detectTensorrt();
 
 class BenchEngine {
 public:

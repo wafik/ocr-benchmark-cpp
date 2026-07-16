@@ -24,6 +24,16 @@ bool detectCuda() {
     return false;
 }
 
+bool detectTensorrt() {
+    try {
+        auto providers = Ort::GetAvailableProviders();
+        for (auto& p : providers) {
+            if (p == "TensorrtExecutionProvider") return true;
+        }
+    } catch (...) {}
+    return false;
+}
+
 namespace {
 
 Polygon cvPointsToPolygon(const std::vector<cv::Point>& box) {
@@ -38,8 +48,9 @@ Polygon cvPointsToPolygon(const std::vector<cv::Point>& box) {
 } // namespace
 
 BenchEngine::BenchEngine(const EngineConfig& config) : config_(config) {
-    bool useCuda = config.useCuda && detectCuda();
-    backend_ = useCuda ? "cuda" : "cpu";
+    bool useTensorrt = config.useTensorrt && detectTensorrt();
+    bool useCuda = (config.useCuda || useTensorrt) && detectCuda();
+    backend_ = useTensorrt ? "tensorrt" : useCuda ? "cuda" : "cpu";
 
     fs::path modelsDir(config.modelsDir);
     std::string detPath = (modelsDir / (config.ocrVersion + "_det.onnx")).string();
@@ -47,11 +58,11 @@ BenchEngine::BenchEngine(const EngineConfig& config) : config_(config) {
     std::string recPath = (modelsDir / (config.ocrVersion + "_rec_" + config.modelType + ".onnx")).string();
     std::string dictPath = (modelsDir / (config.ocrVersion + "_rec_" + config.modelType + "_dict.txt")).string();
 
-    dbNet_.loadModel(detPath, useCuda);
+    dbNet_.loadModel(detPath, useCuda, useTensorrt, config.trtCacheDir);
     if (config.useAngleCls) {
-        angleNet_.loadModel(clsPath, useCuda);
+        angleNet_.loadModel(clsPath, useCuda, useTensorrt, config.trtCacheDir);
     }
-    crnnNet_.loadModel(recPath, useCuda);
+    crnnNet_.loadModel(recPath, useCuda, useTensorrt, config.trtCacheDir);
 
     if (!crnnNet_.loadKeysFromModelMetadata()) {
         crnnNet_.loadKeysFromFile(dictPath);
