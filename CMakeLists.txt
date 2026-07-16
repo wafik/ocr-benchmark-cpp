@@ -28,6 +28,9 @@ add_library(ocr_bench_core STATIC
     src/ocr_bench/db_net.cpp
     src/ocr_bench/engine.cpp
     src/ocr_bench/model_downloader.cpp
+    src/ocr_bench/sysmon.cpp
+    src/ocr_bench/run_status.cpp
+    src/ocr_bench/runner.cpp
 )
 target_include_directories(ocr_bench_core PUBLIC include)
 target_link_libraries(ocr_bench_core PUBLIC nlohmann_json::nlohmann_json ${OpenCV_LIBS} rapidocronnx_vendor onnxruntime::onnxruntime CURL::libcurl)
@@ -48,6 +51,10 @@ add_executable(ocr_bench_tests
     tests/test_engine.cpp
     tests/test_engine_inference.cpp
     tests/test_model_downloader.cpp
+    tests/test_sysmon.cpp
+    tests/test_run_status.cpp
+    tests/test_runner_evaluate_page.cpp
+    tests/test_runner_serialize.cpp
 )
 target_link_libraries(ocr_bench_tests PRIVATE ocr_bench_core doctest::doctest)
 add_test(NAME ocr_bench_tests COMMAND ocr_bench_tests
