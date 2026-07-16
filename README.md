@@ -103,6 +103,98 @@ cmake --build build/jetson -j$(nproc)
 Run tests: `./build/jetson/ocr_bench_tests` (fixtures are copied next to the binary
 automatically; model-dependent tests need `models/` populated via `ocr-bench-download`).
 
+### Models & Dataset Setup
+
+Both the ONNX models and the OCR dataset are **not included** in this repository
+(see `.gitignore`). You must supply them before running benchmarks or the server
+dashboard will be empty.
+
+#### OCR Models (`models/`)
+
+Place these files in the `models/` directory at the project root:
+
+```
+models/
+├── PP-OCRv6_det.onnx          (1.7MB)  text detection
+├── PP-OCRv6_cls.onnx          (572KB)  angle classification
+├── PP-OCRv6_rec_tiny.onnx     (4.3MB)  text recognition (tiny, fast)
+├── PP-OCRv6_rec_tiny_dict.txt (26KB)
+├── PP-OCRv6_rec_small.onnx    (20MB)   text recognition (small, better accuracy)
+├── PP-OCRv6_rec_small_dict.txt
+├── PP-OCRv6_rec_medium.onnx   (73MB)   text recognition (medium, best accuracy)
+└── PP-OCRv6_rec_medium_dict.txt
+```
+
+**Option A — From an existing Python `ocr-benchmark` install (recommended):**
+
+If you have the Python version running on the same machine, copy the models
+from its venv (note: filenames must be **renamed** to match C++ engine convention):
+
+```bash
+SRC=/path/to/ocr-benchmark/.venv/lib/python3.12/site-packages/rapidocr/models
+DST=/path/to/ocr-benchmark-cpp/models
+mkdir -p "$DST"
+cp "$SRC/PP-OCRv6_det_tiny.onnx"     "$DST/PP-OCRv6_det.onnx"
+cp "$SRC/ch_ppocr_mobile_v2.0_cls_mobile.onnx" "$DST/PP-OCRv6_cls.onnx"
+cp "$SRC/PP-OCRv6_rec_tiny.onnx"     "$DST/PP-OCRv6_rec_tiny.onnx"
+cp "$SRC/PP-OCRv6_rec_tiny_dict.txt" "$DST/PP-OCRv6_rec_tiny_dict.txt"
+cp "$SRC/PP-OCRv6_rec_small.onnx"    "$DST/PP-OCRv6_rec_small.onnx"
+cp "$SRC/PP-OCRv6_rec_small_dict.txt" "$DST/PP-OCRv6_rec_small_dict.txt"
+cp "$SRC/PP-OCRv6_rec_medium.onnx"   "$DST/PP-OCRv6_rec_medium.onnx"
+cp "$SRC/PP-OCRv6_rec_medium_dict.txt" "$DST/PP-OCRv6_rec_medium_dict.txt"
+```
+
+**Option B — Download via `ocr-bench-download`:**
+
+```bash
+./build/jetson/ocr-bench-download --ocr-version PP-OCRv6 --model-type tiny --models-dir models
+```
+
+> **Note:** `ocr-bench-download` fetches from ModelScope. If the URL is down
+> (returns 404/500), use Option A instead.
+
+#### TTS Models (Piper)
+
+Place Indonesian voice files in `models/piper-voices/id/`:
+
+```
+models/piper-voices/id/
+├── id_ID-news_tts-medium.onnx      (60MB)
+└── id_ID-news_tts-medium.onnx.json (piper config)
+```
+
+From an existing Python `ocr-benchmark` install:
+
+```bash
+cp /path/to/ocr-benchmark/models/piper-voices/id/* /path/to/ocr-benchmark-cpp/models/piper-voices/id/
+```
+
+#### Dataset (`IMG_OCR_IND_CN/`)
+
+Place the dataset folder at the **project root** (same level as `CMakeLists.txt`):
+
+```
+ocr-benchmark-cpp/
+├── IMG_OCR_IND_CN/
+│   ├── BADGES AND PASSES/
+│   ├── BILLS/
+│   ├── CONTRACTS/
+│   ├── FORMS/
+│   ├── IDENTITY CARDS/
+│   ├── NEWSPAPERS/
+│   ├── NOTES/
+│   ├── PAPERS/
+│   ├── TRADE DOCUMENTS/
+│   └── WHITEBOARD (BLACKBOARD)/
+└── CMakeLists.txt
+```
+
+From an existing Python `ocr-benchmark` install:
+
+```bash
+cp -r /path/to/ocr-benchmark/IMG_OCR_IND_CN /path/to/ocr-benchmark-cpp/IMG_OCR_IND_CN
+```
+
 ### Run as a systemd service (port 8765)
 
 To keep the dashboard running across reboots/disconnects, install it as a systemd
