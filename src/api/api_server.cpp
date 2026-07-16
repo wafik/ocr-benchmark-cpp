@@ -370,6 +370,42 @@ void ApiServer::registerResultsRoutes() {
         categories.push_back({{"name", "All"}, {"n_images", totalImages}, {"n_lines", totalLines}});
         res.set_content(nlohmann::json{{"categories", categories}, {"dataset", key}}.dump(), "application/json");
     });
+
+    // GET /api/history — list all benchmark runs
+    server_->Get("/api/history", [this](const httplib::Request&, httplib::Response& res) {
+        std::string indexPath = config_.reportsRoot + "/history/index.json";
+        nlohmann::json runs = nlohmann::json::array();
+        if (fs::exists(indexPath)) {
+            try {
+                std::ifstream in(indexPath);
+                runs = nlohmann::json::parse(in);
+            } catch (...) {}
+        }
+        // Reverse so newest is first
+        std::reverse(runs.begin(), runs.end());
+        res.set_content(nlohmann::json{{"runs", runs}}.dump(), "application/json");
+    });
+
+    // GET /api/history/{run_id} — get details for a specific run
+    server_->Get(R"(/api/history/([^/]+))", [this](const httplib::Request& req, httplib::Response& res) {
+        std::string runId = req.matches[1].str();
+        // Sanitize: only allow alphanumeric, dash, underscore
+        std::string sanitized;
+        for (char c : runId) {
+            if (std::isalnum(static_cast<unsigned char>(c)) || c == '-' || c == '_') {
+                sanitized += c;
+            }
+        }
+        if (sanitized.empty()) { res.status = 404; return; }
+
+        std::string path = config_.reportsRoot + "/history/" + sanitized + ".json";
+        if (!fs::exists(path)) {
+            res.status = 404;
+            return;
+        }
+        std::ifstream in(path);
+        res.set_content(std::string(std::istreambuf_iterator<char>(in), {}), "application/json");
+    });
 }
 
 // --- TTS + Combined ---
