@@ -163,6 +163,32 @@ void ApiServer::registerHealthRoutes() {
         res.set_content(status.dump(), "application/json");
     });
 
+    // GET /api/progress/stream — SSE endpoint for live progress updates
+    server_->Get("/api/progress/stream", [this](const httplib::Request&, httplib::Response& res) {
+        res.set_chunked_content_provider("text/event-stream",
+            [this](size_t, httplib::DataSink& sink) -> bool {
+                auto [key, root] = resolveDatasetRoot();
+                (void)root;
+                nlohmann::json idle = {{"running", false}, {"total", 0}, {"completed", nlohmann::json::array()},
+                                        {"current", nullptr}, {"dataset", key}};
+
+                std::string lastUpdated;
+                for (int i = 0; i < 1200; i++) {
+                    auto current = readStatusFile(config_.reportsRoot + "/.run_status.json", idle);
+                    std::string curUpdated = current.value("updated_at", "");
+
+                    if (curUpdated != lastUpdated || current.value("running", false)) {
+                        std::string sseData = "data: " + current.dump() + "\n\n";
+                        if (!sink.write(sseData.c_str(), sseData.size())) return false;
+                        lastUpdated = curUpdated;
+                        if (!current.value("running", false) && !lastUpdated.empty()) return true;
+                    }
+                    std::this_thread::sleep_for(std::chrono::seconds(1));
+                }
+                return true;
+            });
+    });
+
     server_->Get("/api/system", [](const httplib::Request&, httplib::Response& res) {
         res.set_content(systemSampleToJson(sampleSystem()).dump(), "application/json");
     });
