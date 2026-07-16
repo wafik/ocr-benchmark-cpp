@@ -88,3 +88,6 @@ target_link_libraries(ocr-bench-run PRIVATE ocr_bench_core cxxopts::cxxopts)
 
 add_executable(ocr-bench-download cli/download_models.cpp)
 target_link_libraries(ocr-bench-download PRIVATE ocr_bench_core cxxopts::cxxopts)
+
+add_executable(ocr-bench-serve src/api/main.cpp src/api/api_server.cpp)
+target_link_libraries(ocr-bench-serve PRIVATE ocr_bench_core httplib::httplib cxxopts::cxxopts)

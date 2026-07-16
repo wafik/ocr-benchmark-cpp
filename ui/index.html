@@ -1,0 +1,684 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>OCR Benchmark</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300..700;1,9..40,300..700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+
+<!-- ─── Topbar ─────────────────────────────────────────────── -->
+<header class="topbar">
+  <div class="topbar-inner">
+    <div class="brand">
+      <div class="logo">
+        <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+          <rect x="2" y="2" width="24" height="24" rx="6" fill="var(--accent)" opacity="0.12"/>
+          <rect x="6" y="8" width="16" height="2" rx="1" fill="var(--accent)"/>
+          <rect x="6" y="13" width="12" height="2" rx="1" fill="var(--accent)" opacity="0.6"/>
+          <rect x="6" y="18" width="14" height="2" rx="1" fill="var(--accent)" opacity="0.35"/>
+        </svg>
+      </div>
+      <div>
+        <div class="title">OCR Benchmark</div>
+        <div class="sub">ai4db · Indonesian documents</div>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <nav class="topbar-nav">
+        <a href="datasets.html" class="topbar-link" data-nav="datasets">Datasets</a>
+        <a href="/tts" class="topbar-link" data-nav="tts">TTS</a>
+        <a href="/combined" class="topbar-link" data-nav="combined">Combined</a>
+      </nav>
+      <div id="dataset-badge" class="dataset-badge" title="Active dataset">
+        <span class="badge-dot"></span>
+        <span id="dataset-badge-text">–</span>
+      </div>
+      <div id="model-badge" class="model-badge" title="Current OCR model">
+        <span class="badge-dot"></span>
+        <span id="model-badge-text">–</span>
+      </div>
+      <span id="last-run" class="last-run" title="When the last benchmark finished">–</span>
+    </div>
+  </div>
+</header>
+
+<main class="container">
+
+  <!-- ─── System Resources ────────────────────────────────── -->
+  <section class="panel sysmon-panel">
+    <header class="panel-head">
+      <h2>System resources</h2>
+      <span class="muted" id="sysmon-highload"></span>
+      <span class="muted" id="sysmon-updated">–</span>
+    </header>
+    <div class="sysmon-grid" id="sysmon-grid">
+      <div class="sysmon-card" data-metric="cpu">
+        <div class="sysmon-head">
+          <span class="sysmon-label">CPU</span>
+          <span class="sysmon-value" id="sysmon-cpu-val">–</span>
+        </div>
+        <div class="sysmon-bar-track"><div class="sysmon-bar" id="sysmon-cpu-bar"></div></div>
+        <div class="sysmon-sub muted" id="sysmon-cpu-sub"></div>
+      </div>
+      <div class="sysmon-card" data-metric="ram">
+        <div class="sysmon-head">
+          <span class="sysmon-label">RAM</span>
+          <span class="sysmon-value" id="sysmon-ram-val">–</span>
+        </div>
+        <div class="sysmon-bar-track"><div class="sysmon-bar" id="sysmon-ram-bar"></div></div>
+        <div class="sysmon-sub muted" id="sysmon-ram-sub"></div>
+      </div>
+      <div class="sysmon-card" data-metric="cpu-temp">
+        <div class="sysmon-head">
+          <span class="sysmon-label">CPU temp</span>
+          <span class="sysmon-value" id="sysmon-cputemp-val">–</span>
+        </div>
+        <div class="sysmon-bar-track"><div class="sysmon-bar sysmon-bar-temp" id="sysmon-cputemp-bar"></div></div>
+        <div class="sysmon-sub muted" id="sysmon-cputemp-sub"></div>
+      </div>
+      <div class="sysmon-card" data-metric="gpu">
+        <div class="sysmon-head">
+          <span class="sysmon-label">GPU</span>
+          <span class="sysmon-value" id="sysmon-gpu-val">–</span>
+        </div>
+        <div class="sysmon-bar-track"><div class="sysmon-bar" id="sysmon-gpu-bar"></div></div>
+        <div class="sysmon-sub muted" id="sysmon-gpu-sub"></div>
+      </div>
+      <div class="sysmon-card" data-metric="gpu-mem">
+        <div class="sysmon-head">
+          <span class="sysmon-label">GPU mem</span>
+          <span class="sysmon-value" id="sysmon-gpumem-val">–</span>
+        </div>
+        <div class="sysmon-bar-track"><div class="sysmon-bar" id="sysmon-gpumem-bar"></div></div>
+        <div class="sysmon-sub muted" id="sysmon-gpumem-sub"></div>
+      </div>
+      <div class="sysmon-card" data-metric="gpu-temp">
+        <div class="sysmon-head">
+          <span class="sysmon-label">GPU temp</span>
+          <span class="sysmon-value" id="sysmon-gputemp-val">–</span>
+        </div>
+        <div class="sysmon-bar-track"><div class="sysmon-bar sysmon-bar-temp" id="sysmon-gputemp-bar"></div></div>
+        <div class="sysmon-sub muted" id="sysmon-gputemp-sub"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── Model Selector ──────────────────────────────────── -->
+  <section class="panel model-panel">
+    <div class="panel-head">
+      <h2>OCR Model</h2>
+      <span class="muted">select engine and model size</span>
+    </div>
+
+    <!-- Dataset + Category selectors — primary control for which dataset to
+         run on. Populated by app.js from /api/config.dataset_keys and
+         /api/datasets/<key>/categories. -->
+    <div class="dataset-row">
+      <label class="dataset-field">
+        <span class="dataset-label">Dataset</span>
+        <select id="dataset-select" class="dataset-select"></select>
+      </label>
+      <label class="dataset-field">
+        <span class="dataset-label">Category</span>
+        <select id="category-select" class="dataset-select">
+          <option value="">All</option>
+        </select>
+      </label>
+      <span id="dataset-summary" class="dataset-summary muted">–</span>
+    </div>
+
+    <div class="model-grid" id="model-grid">
+      <div class="model-loading muted">loading models…</div>
+    </div>
+
+    <section class="knobs" id="knobs" open>
+      <header class="knobs-head">
+        <div class="knobs-title-block">
+          <div class="knobs-title">
+            <span class="knobs-title-meta">10 parameters · 11 categories</span>
+          </div>
+          <p class="knobs-sub">Edit any value — overrides persist into run history so each run remembers what produced its score.</p>
+        </div>
+        <div class="knobs-head-right">
+          <span id="knobs-summary" class="knobs-summary">defaults</span>
+          <button type="button" id="knobs-reset" class="btn-ghost">Reset to .env</button>
+        </div>
+      </header>
+
+      <div class="knob-cards">
+        <!-- Card 01 — Detection -->
+        <article class="knob-card knob-card-detection">
+          <header class="knob-card-head">
+            <div class="knob-card-mark">
+              <svg width="22" height="22" viewBox="0 0 22 22" fill="none" aria-hidden="true">
+                <circle cx="11" cy="11" r="9" stroke="currentColor" stroke-width="1.4" opacity="0.4"/>
+                <circle cx="11" cy="11" r="5.5" stroke="currentColor" stroke-width="1.4" opacity="0.7"/>
+                <circle cx="11" cy="11" r="2" fill="currentColor"/>
+              </svg>
+            </div>
+            <div class="knob-card-title-block">
+              <span class="knob-card-index">CARD 01</span>
+              <h4 class="knob-card-title">Detection</h4>
+            </div>
+            <span class="knob-card-tally">4 parameters</span>
+          </header>
+          <div class="knob-card-body knob-card-2x2">
+            <div class="knob knob-range" data-knob="det_box_thresh">
+              <div class="knob-row">
+                <span class="knob-name">box_thresh</span>
+                <span class="knob-value-wrap">
+                  <span class="knob-delta" id="knob-delta-det_box_thresh"></span>
+                  <span class="knob-value" id="knob-val-det_box_thresh">0.50</span>
+                </span>
+              </div>
+              <div class="knob-track-wrap">
+                <input type="range" id="knob-box-thresh" min="0.10" max="0.90" step="0.05" value="0.50">
+              </div>
+              <div class="knob-ticks"><span>0.1</span><span>0.5</span><span>0.9</span></div>
+              <div class="knob-meta">
+                <span class="knob-affects">affects</span>
+                <span class="chip chip-card">CARDS</span>
+                <span class="chip chip-whiteboard">WHITEBOARD</span>
+              </div>
+              <div class="knob-hint">higher → fewer weak boxes</div>
+            </div>
+
+            <div class="knob knob-range" data-knob="det_thresh">
+              <div class="knob-row">
+                <span class="knob-name">thresh</span>
+                <span class="knob-value-wrap">
+                  <span class="knob-delta" id="knob-delta-det_thresh"></span>
+                  <span class="knob-value" id="knob-val-det_thresh">0.30</span>
+                </span>
+              </div>
+              <div class="knob-track-wrap">
+                <input type="range" id="knob-det-thresh" min="0.10" max="0.70" step="0.05" value="0.30">
+              </div>
+              <div class="knob-ticks"><span>0.1</span><span>0.4</span><span>0.7</span></div>
+              <div class="knob-meta">
+                <span class="knob-affects">affects</span>
+                <span class="chip chip-card">CARDS</span>
+                <span class="chip chip-whiteboard">WHITEBOARD</span>
+              </div>
+              <div class="knob-hint">binarization inside det model</div>
+            </div>
+
+            <div class="knob knob-range" data-knob="det_unclip_ratio">
+              <div class="knob-row">
+                <span class="knob-name">unclip_ratio</span>
+                <span class="knob-value-wrap">
+                  <span class="knob-delta" id="knob-delta-det_unclip_ratio"></span>
+                  <span class="knob-value" id="knob-val-det_unclip_ratio">1.60</span>
+                </span>
+              </div>
+              <div class="knob-track-wrap">
+                <input type="range" id="knob-unclip" min="0.8" max="2.6" step="0.10" value="1.60">
+              </div>
+              <div class="knob-ticks"><span>0.8</span><span>1.6</span><span>2.6</span></div>
+              <div class="knob-meta">
+                <span class="knob-affects">affects</span>
+                <span class="chip chip-bills">BILLS</span>
+                <span class="chip chip-trade">TRADE</span>
+              </div>
+              <div class="knob-hint">lower → fewer merged words</div>
+            </div>
+
+            <div class="knob knob-range" data-knob="det_limit_side_len">
+              <div class="knob-row">
+                <span class="knob-name">limit_side_len</span>
+                <span class="knob-value-wrap">
+                  <span class="knob-delta" id="knob-delta-det_limit_side_len"></span>
+                  <span class="knob-value" id="knob-val-det_limit_side_len">736</span>
+                </span>
+              </div>
+              <div class="knob-track-wrap">
+                <input type="range" id="knob-limit-side" min="320" max="2048" step="32" value="736">
+              </div>
+              <div class="knob-ticks"><span>320</span><span>1024</span><span>2048</span></div>
+              <div class="knob-meta">
+                <span class="knob-affects">affects</span>
+                <span class="chip chip-bills">BILLS</span>
+                <span class="chip chip-trade">TRADE</span>
+              </div>
+              <div class="knob-hint">higher → sharper small text</div>
+            </div>
+          </div>
+        </article>
+
+        <!-- Card 02 — Recognition -->
+        <article class="knob-card knob-card-recognition">
+          <header class="knob-card-head">
+            <div class="knob-card-mark">
+              <svg width="22" height="22" viewBox="0 0 22 22" fill="none" aria-hidden="true">
+                <line x1="3" y1="6" x2="19" y2="6" stroke="currentColor" stroke-width="1.6" opacity="0.5"/>
+                <line x1="3" y1="11" x2="19" y2="11" stroke="currentColor" stroke-width="1.6" opacity="0.85"/>
+                <line x1="3" y1="16" x2="19" y2="16" stroke="currentColor" stroke-width="1.6"/>
+              </svg>
+            </div>
+            <div class="knob-card-title-block">
+              <span class="knob-card-index">CARD 02</span>
+              <h4 class="knob-card-title">Recognition</h4>
+            </div>
+            <span class="knob-card-tally">2 parameters</span>
+          </header>
+          <div class="knob-card-body knob-card-1x2">
+            <div class="knob knob-num" data-knob="rec_batch_num">
+              <div class="knob-row">
+                <span class="knob-name">batch_num</span>
+                <span class="knob-value-wrap">
+                  <span class="knob-delta" id="knob-delta-rec_batch_num"></span>
+                  <span class="knob-value" id="knob-val-rec_batch_num">6</span>
+                </span>
+              </div>
+              <input type="number" id="knob-rec-batch" step="1" min="1" max="32" value="6">
+              <div class="knob-meta">
+                <span class="knob-affects">affects</span>
+                <span class="chip chip-throughput">THROUGHPUT</span>
+              </div>
+              <div class="knob-hint">higher = faster, more VRAM</div>
+            </div>
+
+            <div class="knob knob-num" data-knob="rec_img_width">
+              <div class="knob-row">
+                <span class="knob-name">img_width</span>
+                <span class="knob-value-wrap">
+                  <span class="knob-delta" id="knob-delta-rec_img_width"></span>
+                  <span class="knob-value" id="knob-val-rec_img_width">320</span>
+                </span>
+              </div>
+              <input type="number" id="knob-rec-width" step="32" min="64" max="1024" value="320">
+              <div class="knob-meta">
+                <span class="knob-affects">affects</span>
+                <span class="chip chip-papers">PAPERS</span>
+                <span class="chip chip-newspaper">NEWSPAPERS</span>
+              </div>
+              <div class="knob-hint">wider = longer lines</div>
+            </div>
+          </div>
+        </article>
+
+        <!-- Card 03 — Pipeline -->
+        <article class="knob-card knob-card-pipeline">
+          <header class="knob-card-head">
+            <div class="knob-card-mark">
+              <svg width="22" height="22" viewBox="0 0 22 22" fill="none" aria-hidden="true">
+                <rect x="3" y="9" width="6" height="4" rx="1" stroke="currentColor" stroke-width="1.4"/>
+                <rect x="13" y="9" width="6" height="4" rx="1" stroke="currentColor" stroke-width="1.4"/>
+                <line x1="9" y1="11" x2="13" y2="11" stroke="currentColor" stroke-width="1.4" opacity="0.6"/>
+              </svg>
+            </div>
+            <div class="knob-card-title-block">
+              <span class="knob-card-index">CARD 03</span>
+              <h4 class="knob-card-title">Pipeline</h4>
+            </div>
+            <span class="knob-card-tally">4 parameters</span>
+          </header>
+          <div class="knob-card-body knob-card-mixed">
+            <div class="knob knob-toggle" data-knob="use_tensorrt" id="knob-tensorrt-wrap">
+              <div class="knob-row">
+                <span class="knob-name">TensorRT</span>
+                <span class="knob-value-wrap">
+                  <span class="knob-delta" id="knob-delta-use_tensorrt"></span>
+                  <span class="knob-value" id="knob-val-use_tensorrt">off</span>
+                </span>
+              </div>
+              <label class="switch">
+                <input type="checkbox" id="knob-tensorrt">
+                <span class="switch-slider"></span>
+              </label>
+              <div class="knob-meta">
+                <span class="knob-affects">backend</span>
+                <span class="chip" id="knob-tensorrt-badge">CUDA</span>
+              </div>
+              <div class="knob-hint" id="knob-tensorrt-hint">FP16 engine — first run compiles (~15min), then ~40x faster det</div>
+            </div>
+
+            <div class="knob knob-toggle" data-knob="use_angle_cls">
+              <div class="knob-row">
+                <span class="knob-name">angle_cls</span>
+                <span class="knob-value-wrap">
+                  <span class="knob-delta" id="knob-delta-use_angle_cls"></span>
+                  <span class="knob-value" id="knob-val-use_angle_cls">off</span>
+                </span>
+              </div>
+              <label class="switch">
+                <input type="checkbox" id="knob-angle-cls">
+                <span class="switch-slider"></span>
+              </label>
+              <div class="knob-meta">
+                <span class="knob-affects">affects</span>
+                <span class="chip chip-card">CARDS</span>
+                <span class="chip chip-notes">NOTES</span>
+              </div>
+              <div class="knob-hint">straightens rotated text</div>
+            </div>
+
+            <div class="knob knob-toggle" data-knob="enable_preprocessing">
+              <div class="knob-row">
+                <span class="knob-name">preprocessing</span>
+                <span class="knob-value-wrap">
+                  <span class="knob-delta" id="knob-delta-enable_preprocessing"></span>
+                  <span class="knob-value" id="knob-val-enable_preprocessing">off</span>
+                </span>
+              </div>
+              <label class="switch">
+                <input type="checkbox" id="knob-preprocessing">
+                <span class="switch-slider"></span>
+              </label>
+              <div class="knob-meta">
+                <span class="knob-affects">affects</span>
+                <span class="chip chip-whiteboard">WHITEBOARD</span>
+                <span class="chip chip-notes">NOTES</span>
+              </div>
+              <div class="knob-hint">grayscale + CLAHE + 2× upscale</div>
+            </div>
+
+            <div class="knob knob-range" data-knob="iou_threshold">
+              <div class="knob-row">
+                <span class="knob-name">iou_threshold</span>
+                <span class="knob-value-wrap">
+                  <span class="knob-delta" id="knob-delta-iou_threshold"></span>
+                  <span class="knob-value" id="knob-val-iou_threshold">0.50</span>
+                </span>
+              </div>
+              <div class="knob-track-wrap">
+                <input type="range" id="knob-iou" min="0.10" max="0.90" step="0.05" value="0.50">
+              </div>
+              <div class="knob-ticks"><span>0.1</span><span>0.5</span><span>0.9</span></div>
+              <div class="knob-meta">
+                <span class="knob-affects">affects</span>
+                <span class="chip chip-scoring">SCORING</span>
+              </div>
+              <div class="knob-hint">det-vs-GT match threshold</div>
+            </div>
+          </div>
+        </article>
+      </div>
+
+      <!-- Live config preview — env-style lines that will be sent to /api/run. -->
+      <div class="knobs-preview" id="knobs-preview">
+        <div class="knobs-preview-label">effective config (next run)</div>
+        <div id="knobs-preview-body"></div>
+      </div>
+
+      <!-- Recent runs ledger -->
+      <div class="knobs-history" id="knobs-history">
+        <div class="knobs-history-head">
+          <span class="knobs-history-title">Recent runs</span>
+          <span class="knobs-history-hint">click a row to load its knobs back</span>
+        </div>
+        <div class="knobs-history-list" id="knobs-history-list"></div>
+      </div>
+    </section>
+
+    <div class="model-actions">
+      <button id="btn-run" class="btn-run">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M4 2.5L13 8L4 13.5V2.5Z" fill="currentColor"/></svg>
+        Run benchmark
+      </button>
+      <a href="/tts" class="btn-ghost">🔊 TTS benchmark</a>
+      <span id="status" class="status">idle</span>
+    </div>
+  </section>
+
+  <!-- ─── Corrector Banner ────────────────────────────────── -->
+  <section id="corrector-banner" class="panel banner-panel hidden">
+    <div class="banner-inner">
+      <div class="banner-icon" id="cb-icon">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M10 2L12.5 7.5L18 8.5L14 12.5L15 18L10 15.5L5 18L6 12.5L2 8.5L7.5 7.5L10 2Z" fill="var(--accent)" opacity="0.8"/></svg>
+      </div>
+      <div class="banner-text">
+        <div class="banner-title">SymSpell + KBBI corrector: <span id="cb-state">–</span></div>
+        <div class="banner-sub" id="cb-sub">–</div>
+      </div>
+      <div class="banner-delta" id="cb-delta"></div>
+    </div>
+  </section>
+
+  <!-- ─── Progress ────────────────────────────────────────── -->
+  <section id="progress-panel" class="panel hidden">
+    <header class="panel-head">
+      <h2>Benchmark in progress</h2>
+      <span id="progress-summary" class="muted">starting…</span>
+    </header>
+    <div class="progress-bar"><div id="progress-fill"></div></div>
+    <div class="progress-meta">
+      <span id="progress-current"></span>
+      <span id="progress-eta"></span>
+      <span id="progress-elapsed"></span>
+    </div>
+    <ul id="progress-list" class="progress-list"></ul>
+  </section>
+
+  <!-- ─── Score Ring + Metric Cards ───────────────────────── -->
+  <section class="overview-row">
+    <div class="panel score-ring-card">
+      <div class="ring-label">Overall F1</div>
+      <svg class="ring-svg" viewBox="0 0 120 120">
+        <circle class="ring-bg" cx="60" cy="60" r="50" />
+        <circle class="ring-fill" id="ring-fill" cx="60" cy="60" r="50" />
+      </svg>
+      <div class="ring-value" id="ring-value">–</div>
+      <div class="ring-sub" id="ring-sub">detection score</div>
+    </div>
+    <div class="metrics-grid">
+      <div class="metric-card" title="Character Error Rate — raw OCR output">
+        <div class="metric-head">
+          <span class="metric-label">CER</span>
+          <span class="metric-tag">raw</span>
+        </div>
+        <div class="metric-value" id="m-cer">–</div>
+        <div class="metric-bar-track"><div class="metric-bar cer-bar" id="bar-cer"></div></div>
+      </div>
+      <div class="metric-card" title="CER after SymSpell + KBBI correction">
+        <div class="metric-head">
+          <span class="metric-label">CER</span>
+          <span class="metric-tag accent">corrected</span>
+        </div>
+        <div class="metric-value" id="m-cer-c">–</div>
+        <div class="metric-bar-track"><div class="metric-bar cer-c-bar" id="bar-cer-c"></div></div>
+      </div>
+      <div class="metric-card" title="Word Error Rate — raw OCR output">
+        <div class="metric-head">
+          <span class="metric-label">WER</span>
+          <span class="metric-tag">raw</span>
+        </div>
+        <div class="metric-value" id="m-wer">–</div>
+        <div class="metric-bar-track"><div class="metric-bar wer-bar" id="bar-wer"></div></div>
+      </div>
+      <div class="metric-card" title="WER after correction">
+        <div class="metric-head">
+          <span class="metric-label">WER</span>
+          <span class="metric-tag accent">corrected</span>
+        </div>
+        <div class="metric-value" id="m-wer-c">–</div>
+        <div class="metric-bar-track"><div class="metric-bar wer-c-bar" id="bar-wer-c"></div></div>
+      </div>
+      <div class="metric-card" title="Total images processed">
+        <div class="metric-head">
+          <span class="metric-label">Images</span>
+        </div>
+        <div class="metric-value" id="m-imgs">–</div>
+        <div class="metric-sub" id="m-lines-hint"></div>
+      </div>
+      <div class="metric-card" title="Detection precision and recall">
+        <div class="metric-head">
+          <span class="metric-label">P / R</span>
+        </div>
+        <div class="metric-value" id="m-pr">–</div>
+        <div class="metric-sub" id="m-pr-hint">precision · recall</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── Category Bar Chart ──────────────────────────────── -->
+  <section class="panel">
+    <header class="panel-head">
+      <h2>Performance by category</h2>
+      <div class="legend">
+        <span class="lg lg-f1">F1</span>
+        <span class="lg lg-cer">CER</span>
+        <span class="lg lg-wer">WER</span>
+      </div>
+    </header>
+    <div class="chart-area" id="chart-area">
+      <div class="muted">run a benchmark to see results</div>
+    </div>
+  </section>
+
+  <!-- ─── Run History ─────────────────────────────────────── -->
+  <section class="panel">
+    <header class="panel-head">
+      <h2>Run history</h2>
+      <span class="muted">compare past benchmark runs</span>
+    </header>
+    <div class="history-controls">
+      <button id="btn-compare" class="btn-compare" disabled>Compare selected</button>
+      <span id="history-count" class="muted"></span>
+    </div>
+    <div class="history-table-wrap">
+      <table id="history-table">
+        <thead>
+          <tr>
+            <th></th>
+            <th>When</th>
+            <th>Model</th>
+            <th class="num">F1</th>
+            <th class="num">CER</th>
+            <th class="num">WER</th>
+            <th class="num">Imgs</th>
+            <th class="num">Duration</th>
+            <th class="num" title="Peak CPU usage during this run">CPU</th>
+            <th class="num" title="Peak RAM usage during this run">RAM</th>
+            <th class="num" title="Peak GPU usage during this run">GPU</th>
+            <th class="num">Age</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="history-tbody"></tbody>
+      </table>
+    </div>
+    <div id="compare-panel" class="compare-panel hidden">
+      <div class="compare-head">
+        <h3>Comparison</h3>
+        <button id="btn-compare-close" class="btn-back">close</button>
+      </div>
+      <div id="compare-content"></div>
+    </div>
+    <div id="run-detail-panel" class="compare-panel hidden">
+      <div class="compare-head">
+        <div>
+          <h3 id="run-detail-title">Run detail</h3>
+          <div id="run-detail-sub" class="muted"></div>
+        </div>
+        <button id="btn-run-detail-close" class="btn-back">close</button>
+      </div>
+      <div id="run-detail-content"></div>
+    </div>
+  </section>
+
+  <!-- ─── Category Table ──────────────────────────────────── -->
+  <section class="panel">
+    <header class="panel-head">
+      <h2>Detailed results</h2>
+      <span class="muted">click a row to drill down · toggle view by model below</span>
+    </header>
+    <div class="dr-toolbar">
+      <span class="dr-toolbar-label muted">View:</span>
+      <button type="button" class="dr-tab dr-tab-active" data-dr-view="latest">Latest run</button>
+      <button type="button" class="dr-tab" data-dr-view="all">All models</button>
+      <button type="button" class="dr-tab" data-dr-view="best">Best per model</button>
+      <span class="dr-toolbar-meta muted" id="dr-toolbar-meta"></span>
+    </div>
+    <div class="dr-dataset-row">
+      <label class="dr-dataset-field">
+        <span class="dr-toolbar-label muted">Dataset</span>
+        <select id="dr-dataset-select" class="dr-dataset-select"></select>
+      </label>
+      <span id="dr-dataset-summary" class="dataset-summary muted">–</span>
+    </div>
+    <div class="table-wrap">
+      <table id="cat-table">
+        <thead id="cat-thead"></thead>
+        <tbody id="cat-tbody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ─── Glossary ────────────────────────────────────────── -->
+  <section class="panel">
+    <header class="panel-head">
+      <h2>Glossary</h2>
+      <span class="muted">what the numbers mean</span>
+    </header>
+    <dl class="glossary">
+      <div><dt>GT</dt><dd><b>Ground Truth</b> — human-labeled text + polygon from labelme JSON.</dd></div>
+      <div><dt>PR</dt><dd><b>Predicted</b> — what the OCR engine returned.</dd></div>
+      <div><dt>F1</dt><dd>Harmonic mean of detection precision and recall. <span class="dir-up">↑ 1.0 perfect</span></dd></div>
+      <div><dt>CER</dt><dd><b>Character Error Rate</b> — edit distance / GT length. <span class="dir-down">↓ 0.0 perfect</span></dd></div>
+      <div><dt>WER</dt><dd><b>Word Error Rate</b> — same as CER at word level. <span class="dir-down">↓ 0.0 perfect</span></dd></div>
+      <div><dt>IoU</dt><dd><b>Intersection over Union</b> — polygon overlap. ≥ 0.5 = match. <span class="dir-up">↑ 1.0 identical</span></dd></div>
+      <div><dt>TP / FP / FN</dt><dd>Matched / extra / missed detection lines.</dd></div>
+      <div><dt>Conf</dt><dd>Average OCR confidence on matched lines.</dd></div>
+    </dl>
+  </section>
+
+  <!-- ─── Detail Drill-down ───────────────────────────────── -->
+  <section id="detail" class="panel detail hidden">
+    <header class="panel-head">
+      <button id="back" class="btn-back">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M9 2L4 7L9 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        back
+      </button>
+      <h2 id="detail-title">–</h2>
+      <span id="detail-sub" class="muted"></span>
+    </header>
+    <div class="detail-grid">
+      <div class="image-card">
+        <div class="image-frame" id="image-frame">
+          <img id="detail-img" alt="" />
+          <svg id="overlay" preserveAspectRatio="none"></svg>
+        </div>
+      </div>
+      <div class="side">
+        <div class="kv">
+          <div title="GT lines"><span class="k">GT lines</span><span id="d-gt" class="v">–</span></div>
+          <div title="Predicted"><span class="k">Predicted</span><span id="d-pr" class="v">–</span></div>
+          <div title="TP / FP / FN"><span class="k">TP / FP / FN</span><span id="d-det" class="v">–</span></div>
+          <div title="Detection F1"><span class="k">Detection F1</span><span id="d-f1" class="v">–</span></div>
+          <div title="CER on the matched lines (after IoU match)"><span class="k">Matched CER</span><span id="d-cer" class="v">–</span></div>
+          <div title="CER computed on the whole page as a single string. Punctuation/ordering errors are counted"><span class="k">Joined CER</span><span id="d-jcer" class="v">–</span></div>
+          <div title="CER after SymSpell + KBBI correction (if enabled)"><span class="k">CER (c)</span><span id="d-cer-c" class="v">–</span></div>
+          <div title="Joined CER after correction"><span class="k">Joined CER (c)</span><span id="d-jcer-c" class="v">–</span></div>
+          <div title="Correction status: unchanged · corrected · not_found in KBBI"><span class="k">Correction</span><span id="d-cstatus" class="v">–</span></div>
+          <div title="Mean confidence of OCR predictions on matched lines"><span class="k">Mean conf</span><span id="d-conf" class="v">–</span></div>
+          <div title="Latency per image"><span class="k">Latency</span><span id="d-ms" class="v">–</span></div>
+        </div>
+        <div class="samples">
+          <div class="samples-head">
+            <span>Sample comparison</span>
+            <span class="samples-legend muted">— ✓ = exact · ≠ = wrong · ✗ = missed · + = extra · * = corrected to match · conf = OCR confidence · CER% = line-level character error rate</span>
+          </div>
+          <div id="d-interpretation" class="d-interpretation"></div>
+          <ul id="samples"></ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer class="footer">
+  <span id="model-label">–</span>
+  <span class="footer-sep">·</span>
+  <span>IMG_OCR_IND_CN · 11 categories · 55 images</span>
+</footer>
+
+<script src="/static/app.js"></script>
+</body>
+</html>
