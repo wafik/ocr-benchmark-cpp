@@ -46,6 +46,7 @@ add_executable(ocr_bench_tests
     tests/test_crnn_net.cpp
     tests/test_db_net.cpp
     tests/test_engine.cpp
+    tests/test_engine_inference.cpp
     tests/test_model_downloader.cpp
 )
 target_link_libraries(ocr_bench_tests PRIVATE ocr_bench_core doctest::doctest)
@@ -57,9 +58,12 @@ if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
     target_link_libraries(ocr_bench_tests PRIVATE stdc++fs)
 endif()
 
-# Copy test fixtures next to the test binary so relative paths in tests resolve.
+# Copy test fixtures and models next to the test binary so relative paths in tests resolve.
 add_custom_command(TARGET ocr_bench_tests POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory
         ${CMAKE_SOURCE_DIR}/tests/fixtures
         $<TARGET_FILE_DIR:ocr_bench_tests>/tests/fixtures
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        ${CMAKE_SOURCE_DIR}/models
+        $<TARGET_FILE_DIR:ocr_bench_tests>/models
 )
