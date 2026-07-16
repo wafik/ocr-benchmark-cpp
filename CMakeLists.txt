@@ -62,6 +62,7 @@ add_executable(ocr_bench_tests
     tests/test_api_summary_results.cpp
     tests/test_api_tts_combined.cpp
     tests/test_api_auth.cpp
+    tests/test_ocr_e2e.cpp
 )
 target_link_libraries(ocr_bench_tests PRIVATE ocr_bench_core doctest::doctest httplib::httplib)
 add_test(NAME ocr_bench_tests COMMAND ocr_bench_tests
