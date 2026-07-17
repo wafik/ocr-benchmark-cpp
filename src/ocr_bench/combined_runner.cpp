@@ -64,12 +64,10 @@ nlohmann::json combinedRun(const CombinedRunOptions& options) {
     });
 
     // Phase 2: TTS
-    // Combined mode already loads OCR engine (~2.5GB). Limit TTS workers
-    // to avoid OOM — use at most 2 workers when both engines are loaded.
+    // Combined mode already loads OCR engine (~2.5GB). Limit TTS to
+    // sequential (1 worker) to avoid OOM — OCR + TTS engines share RAM.
     TTSRunOptions ttsOpts = options.ttsOptions;
-    if (ttsOpts.numWorkers <= 0) {
-        ttsOpts.numWorkers = 2; // conservative: OCR + TTS engines share RAM
-    }
+    ttsOpts.numWorkers = 1; // sequential TTS in combined mode (RAM safety)
     nlohmann::json ttsSummary;
     try {
         ttsSummary = ttsRun(ttsOpts);
