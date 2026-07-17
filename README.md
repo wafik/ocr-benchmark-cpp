@@ -369,16 +369,20 @@ the engine once; every subsequent run reuses the cache.
 
 #### TTS — Python vs C++ (Piper, `id_ID-news-tts-medium`)
 
-| Metric | Python (CPU) | C++ (CUDA) | Notes |
-|--------|-------------|------------|-------|
-| Backend | CPU | CUDA | — |
-| RTF mean | 0.094 | 0.325 | Python faster (espeak-ng bottleneck is always CPU) |
-| Chars/sec | 104.6 | 87.8 | — |
+| Metric | Python (CPU) | C++ Sequential (CUDA) | C++ Parallel 2w (CUDA) |
+|--------|-------------|----------------------|------------------------|
+| Backend | CPU | CUDA | CUDA ×2 |
+| RTF mean | 0.094 | 0.328 | 0.305 |
+| Chars/sec | 104.6 | 87.0 | 93.8 |
+| Elapsed (1674 lines) | ~150s | 462.8s | 432.1s |
 
-Piper's ONNX model is small (60 MB) and the text→phoneme step
-(espeak-ng) runs on CPU regardless, so the GPU benefit is modest for
-TTS. The main speed gain in this rewrite is in OCR, where TensorRT +
-C++ gives 1.7–2.4× improvement over the Python TensorRT path.
+C++ parallel (2 workers) gives ~7% speedup over sequential. 4 workers
+exceeds Jetson Nano RAM (each worker uses ~1.3GB due to CUDA context
+overhead). The main speed gap vs Python comes from piper Python binding
+being more mature than vendored libpiper — both use the same upstream
+`OHF-Voice/piper1-gpl` but Python has additional optimizations. The main
+speed gain in this rewrite remains OCR: TensorRT + C++ gives 1.7–2.4×
+improvement over Python.
 
 ### TensorRT Acceleration
 - FP16 enabled, engine cache in `models/trt_engines/`
