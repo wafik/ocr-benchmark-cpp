@@ -71,6 +71,10 @@ struct piper_synthesizer {
     Ort::SessionOptions session_options;
     Ort::Env session_env;
 
+    // Cached output names (static per model, no need to re-query every call)
+    std::vector<std::string> cached_output_names_strs;
+    std::vector<const char*> cached_output_names;
+
     // synthesize state
     std::queue<std::pair<std::vector<Phoneme>, std::vector<PhonemeId>>>
         phoneme_id_queue;

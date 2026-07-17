@@ -131,6 +131,15 @@ struct piper_synthesizer *piper_create(const char *model_path,
     synth->session = std::make_unique<Ort::Session>(
         Ort::Session(ort_env, model_path_ort, synth->session_options));
 
+    // Cache output names once — these are static per model and querying them
+    // per synthesis call was the single biggest overhead in the hot path.
+    synth->cached_output_names_strs = synth->session->GetOutputNames();
+    synth->cached_output_names.clear();
+    synth->cached_output_names.reserve(synth->cached_output_names_strs.size());
+    for (const auto& name : synth->cached_output_names_strs) {
+        synth->cached_output_names.push_back(name.c_str());
+    }
+
     return synth;
 }
 
@@ -371,13 +380,8 @@ int piper_synthesize_next(struct piper_synthesizer *synth,
     std::array<const char *, 4> input_names = {"input", "input_lengths",
                                                "scales", "sid"};
 
-    // Get all output names
-    std::vector<std::string> output_names_strs =
-        synth->session->GetOutputNames();
-    std::vector<const char *> output_names;
-    for (const auto &name : output_names_strs) {
-        output_names.push_back(name.c_str());
-    }
+    // Use cached output names (populated once in piper_create)
+    auto output_names = synth->cached_output_names;
 
     // Infer
     auto output_tensors = synth->session->Run(
@@ -392,27 +396,29 @@ int piper_synthesize_next(struct piper_synthesizer *synth,
         output_tensors.front().GetTensorTypeAndShapeInfo().GetShape();
     chunk->num_samples = audio_shape[audio_shape.size() - 1];
 
+    // Direct pointer from tensor — no copy needed for audio data
     const float *audio_tensor_data =
         output_tensors.front().GetTensorData<float>();
-    synth->chunk_samples.resize(chunk->num_samples);
-    std::copy(audio_tensor_data, audio_tensor_data + chunk->num_samples,
-              synth->chunk_samples.begin());
+    // Still need to copy because tensor lifetime is scoped to this call,
+    // but use reserve+assign to avoid repeated allocation
+    synth->chunk_samples.assign(audio_tensor_data, audio_tensor_data + chunk->num_samples);
     chunk->samples = synth->chunk_samples.data();
 
     chunk->is_last = synth->phoneme_id_queue.empty();
 
-    // Copy phonemes
+    // Move phonemes directly (no copy)
     synth->chunk_phonemes = std::move(next_phonemes);
     chunk->phonemes = synth->chunk_phonemes.data();
     chunk->num_phonemes = synth->chunk_phonemes.size();
 
-    // Copy phoneme ids
+    // Convert phoneme ids with pre-reserved capacity
+    synth->chunk_phoneme_ids.clear();
+    synth->chunk_phoneme_ids.reserve(next_ids.size());
     for (auto phoneme_id : next_ids) {
-        if (phoneme_id < std::numeric_limits<int>::min() ||
-            phoneme_id > std::numeric_limits<int>::max()) {
-            continue;
+        if (phoneme_id >= std::numeric_limits<int>::min() &&
+            phoneme_id <= std::numeric_limits<int>::max()) {
+            synth->chunk_phoneme_ids.push_back(static_cast<int>(phoneme_id));
         }
-        synth->chunk_phoneme_ids.push_back(static_cast<int>(phoneme_id));
     }
 
     chunk->phoneme_ids = synth->chunk_phoneme_ids.data();
