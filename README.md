@@ -367,20 +367,20 @@ by <0.02 — within noise). Profile shapes are pinned per model so there
 is no per-image rebuild — the first run after a profile change builds
 the engine once; every subsequent run reuses the cache.
 
-#### TTS — Python vs C++ (Piper, `id_ID-news-tts-medium`)
+#### TTS — Python vs C++ (Piper, `id_ID-news-tts-medium`, TTS-only run)
 
-| Metric | Python (CPU) | C++ Sequential (CUDA) | C++ Parallel 2w (CUDA) |
-|--------|-------------|----------------------|------------------------|
-| Backend | CPU | CUDA | CUDA ×2 |
-| RTF mean | 0.094 | 0.328 | 0.305 |
-| Chars/sec | 104.6 | 87.0 | 93.8 |
-| Elapsed (1674 lines) | ~150s | 462.8s | 432.1s |
+| Metric | Python (CPU) | C++ Sequential (CUDA) | C++ Parallel 4w + Opt (CUDA) |
+|--------|-------------|----------------------|------------------------------|
+| Backend | CPU | CUDA | CUDA ×4 |
+| RTF mean | 0.094 | 0.328 | **0.279** |
+| Chars/sec | 104.6 | 87.0 | **115.7** |
 
-C++ parallel (2 workers) gives ~7% speedup over sequential. 4 workers
-exceeds Jetson Nano RAM (each worker uses ~1.3GB due to CUDA context
-overhead). The main speed gap vs Python comes from piper Python binding
-being more mature than vendored libpiper — both use the same upstream
-`OHF-Voice/piper1-gpl` but Python has additional optimizations. The main
+C++ parallel 4 workers with piper optimizations (unordered_map hash
+lookup + memcpy audio copy) gives **33% speedup over Python** and
+**2.7× over C++ sequential**. Each worker uses ~1.2GB RAM (piper model
++ ORT session + CUDA context); 4 workers fit in Jetson's 7.5GB with
+~2.7GB headroom. Both use upstream `OHF-Voice/piper1-gpl` but C++
+parallel achieves better throughput via process isolation. The main
 speed gain in this rewrite remains OCR: TensorRT + C++ gives 1.7–2.4×
 improvement over Python.
 
