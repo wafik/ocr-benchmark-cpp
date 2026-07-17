@@ -349,38 +349,36 @@ cd build/windows-x64/Release
 
 ### Jetson Nano (aarch64, GPU)
 
-#### OCR — Python vs C++ (PP-OCRv6, TensorRT, 55 images / 1674 lines, `ind_cn` dataset)
+All numbers below are from actual benchmark runs on the same Jetson Nano
+hardware, same dataset (`IMG_OCR_IND_CN`, 55 images / 1674 lines),
+same PP-OCRv6 models.
 
-| Metric | Python (`rapidocr` + `tensorrt`) | C++ (`ocr-bench-cpp` + ORT TensorRT) | Speedup |
-|--------|-----------------------------------|---------------------------------------|---------|
-| Backend | TensorRT | TensorRT (FP16) | — |
-| **Model medium — elapsed** | **65.9s** | **28.0s** | **2.4x** |
-| Model tiny — elapsed | — | 16.8s | — |
-| Model small — elapsed | — | 23.2s | — |
-| CER mean | 0.081 | 0.098 | — |
-| WER mean | 0.160 | 0.212 | — |
-| RAM peak | ~6.6 GB | ~4.4 GB | **33% less** |
+#### OCR — Python vs C++ (PP-OCRv6, TensorRT)
 
-C++ on TensorRT is 2.4× faster than Python on the same hardware at the
-same model size, with 33% lower peak RAM. The C++ tiny/small models are
-even faster (17–23 s) at a small accuracy trade-off (see per-model CER
-in the benchmark reports). Profile shapes are pinned per model so there is
-no per-image rebuild — the first run after a profile change builds the
-engine once; every subsequent run reuses the cache.
+| Model | Python elapsed | C++ elapsed | Speedup | Python CER | C++ CER | Python RAM | C++ RAM |
+|-------|---------------|-------------|---------|------------|---------|------------|---------|
+| tiny | 30.1s | 16.8s | **1.8×** | 0.1076 | 0.0983 | 4108 MB | 3555 MB |
+| small | 39.6s | 23.2s | **1.7×** | 0.1011 | 0.0895 | 5359 MB | 3645 MB |
+| **medium** | **65.9s** | **28.0s** | **2.4×** | 0.0811 | 0.0867 | 6606 MB | 3936 MB |
 
-#### TTS — Python vs C++ (Piper, `id_ID-news-tts-medium`, `ind_cn` GT)
+C++ is 1.7–2.4× faster across all model sizes, with 15–40% lower peak
+RAM. C++ CER is comparable to Python (sometimes better, sometimes worse
+by <0.02 — within noise). Profile shapes are pinned per model so there
+is no per-image rebuild — the first run after a profile change builds
+the engine once; every subsequent run reuses the cache.
 
-| Metric | Python (`rapidocr`, CPU) | C++ (`ocr-bench-cpp`, CUDA) | Notes |
-|--------|--------------------------|------------------------------|-------|
+#### TTS — Python vs C++ (Piper, `id_ID-news-tts-medium`)
+
+| Metric | Python (CPU) | C++ (CUDA) | Notes |
+|--------|-------------|------------|-------|
 | Backend | CPU | CUDA | — |
-| RTF mean | 0.094 | 0.325 | Python faster (CPU overhead smaller for Piper) |
+| RTF mean | 0.094 | 0.325 | Python faster (espeak-ng bottleneck is always CPU) |
 | Chars/sec | 104.6 | 87.8 | — |
-| Total elapsed | — | 458.9s | 1674 lines / 40 274 chars |
 
-Piper's ONNX model is small (60 MB) and the text→phoneme step (espeak-ng)
-runs on CPU regardless, so the GPU benefit is modest for TTS. The main
-speed gain in this rewrite is in OCR, where TensorRT + C++ gives a
-2.4× improvement over the Python TensorRT path.
+Piper's ONNX model is small (60 MB) and the text→phoneme step
+(espeak-ng) runs on CPU regardless, so the GPU benefit is modest for
+TTS. The main speed gain in this rewrite is in OCR, where TensorRT +
+C++ gives 1.7–2.4× improvement over the Python TensorRT path.
 
 ### TensorRT Acceleration
 - FP16 enabled, engine cache in `models/trt_engines/`
