@@ -379,9 +379,10 @@ the engine once; every subsequent run reuses the cache.
 | Metric | Python (CUDA) | C++ Sequential (CUDA) | C++ Parallel 4w (CUDA) |
 |--------|--------------|----------------------|------------------------|
 | Backend | CUDA | CUDA | CUDA ×4 |
-| RTF mean | 0.099 | 0.149 | (pending) |
-| Chars/sec | 114.5 | 95.9 | (pending) |
-| Compute time (total) | 342s | 420s | (pending) |
+| RTF mean | 0.099 | 0.149 | 0.155 |
+| Chars/sec | 114.5 | 95.9 | 92.2 |
+| Compute time (total) | 342s | 420s | 437s |
+| Total elapsed | — | 422s | 440s |
 
 C++ sequential TTS is ~23% slower than Python compute time (420s vs 342s),
 not the 3× that was previously reported. The bug in `audio_seconds`
@@ -389,24 +390,24 @@ calculation had doubled every RTF number and halved every chars/sec number
 across all prior C++ TTS benchmarks. The main speed gain in this rewrite
 remains OCR: TensorRT + C++ gives 1.7–2.4× improvement over Python.
 
-Parallel 4 workers with piper optimizations (unordered_map hash lookup +
-memcpy audio copy) give additional speedup via process isolation. Each
-worker uses ~1.2GB RAM (piper model + ORT session + CUDA context); 4
-workers fit in Jetson's 7.5GB with ~2.7GB headroom.
+Parallel 4 workers does **not** improve TTS throughput — IPC overhead
+(pipe + fork + JSON marshal per line) exceeds the parallelism gain for
+1674 short lines (avg 24 chars). Sequential is simpler and slightly faster.
+Each worker uses ~1.2GB RAM; 4 workers consume ~5GB which leaves little
+headroom for OCR in combined mode.
 
 #### Combined (OCR + TTS) — Jetson Nano, tiny model, full dataset
 
-| Phase | Python (CPU) | C++ (TensorRT + CUDA) | Notes |
+| Phase | Python (CUDA) | C++ (TensorRT + CUDA) | Notes |
 |-------|-------------|----------------------|-------|
 | OCR (55 images) | 66.0s | **13.5s** | C++ 4.9× faster |
-| TTS (1674 lines) | ~150s | 428.3s | Sequential (RAM limit) |
-| **Total** | **~216s** | **442.9s** | Python faster overall |
+| TTS (1674 lines) | ~342s | 420s | Sequential (RAM limit) |
+| **Total** | **~408s** | **433s** | Comparable (C++ slightly slower) |
 
-C++ combined is slower overall because TTS runs sequentially in combined
-mode (OCR + TTS engines share ~5GB RAM on Jetson, leaving no room for
-parallel TTS workers). The OCR phase is 4.9× faster, but TTS dominates
-the total time. TTS-only runs with 4 parallel workers achieve 115.7
-chars/sec vs Python's 104.6.
+C++ combined is slightly slower overall because TTS runs sequentially in
+combined mode (OCR + TTS engines share ~5GB RAM on Jetson, leaving no
+room for parallel TTS workers). The OCR phase is 4.9× faster, but TTS
+is ~23% slower than Python. Combined total is comparable (~408s vs ~433s).
 
 ### TensorRT Acceleration
 - FP16 enabled, engine cache in `models/trt_engines/`
