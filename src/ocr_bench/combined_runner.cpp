@@ -64,9 +64,15 @@ nlohmann::json combinedRun(const CombinedRunOptions& options) {
     });
 
     // Phase 2: TTS
+    // Combined mode already loads OCR engine (~2.5GB). Limit TTS workers
+    // to avoid OOM — use at most 2 workers when both engines are loaded.
+    TTSRunOptions ttsOpts = options.ttsOptions;
+    if (ttsOpts.numWorkers <= 0) {
+        ttsOpts.numWorkers = 2; // conservative: OCR + TTS engines share RAM
+    }
     nlohmann::json ttsSummary;
     try {
-        ttsSummary = ttsRun(options.ttsOptions);
+        ttsSummary = ttsRun(ttsOpts);
     } catch (const std::exception& e) {
         writeStatusFile(statusPath, {
             {"running", false}, {"error", std::string("TTS failed: ") + e.what()},
