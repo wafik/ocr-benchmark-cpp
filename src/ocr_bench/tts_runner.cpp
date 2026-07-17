@@ -196,9 +196,10 @@ nlohmann::json ttsRun(const TTSRunOptions& options) {
         }
     }
 
-    // Decide: parallel or sequential
+    // Sequential only — parallel workers add IPC overhead without benefit
+    // for short OCR text lines (avg 24 chars). Each worker also needs
+    // ~1.2GB RAM (piper + ORT + CUDA context) which exhausts Jetson's 7.5GB.
     int numWorkers = options.numWorkers;
-    if (numWorkers == 0) numWorkers = autoDetectWorkers(useCuda);
     bool parallel = numWorkers > 1;
 
     nlohmann::json completed = nlohmann::json::array();
