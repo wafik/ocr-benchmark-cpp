@@ -209,7 +209,9 @@ nlohmann::json ttsRun(const TTSRunOptions& options) {
         // ── Parallel path: distribute lines to worker processes ──
 #ifndef _WIN32
         try {
+            std::cerr << "[TTS] Starting parallel pool: " << numWorkers << " workers, " << allLines.size() << " lines" << std::endl;
             TTSWorkerPool pool(numWorkers, voicePath, espeakDataPath(), useCuda);
+            std::cerr << "[TTS] Pool started, dispatching lines..." << std::endl;
             std::vector<nlohmann::json> results(allLines.size());
 
             for (size_t i = 0; i < allLines.size(); i++) {
