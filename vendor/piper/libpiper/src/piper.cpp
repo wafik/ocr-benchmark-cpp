@@ -3,6 +3,7 @@
 #include "piper_impl.hpp"
 
 #include <array>
+#include <cstring>
 #include <fstream>
 #include <limits>
 
@@ -399,9 +400,10 @@ int piper_synthesize_next(struct piper_synthesizer *synth,
     // Direct pointer from tensor — no copy needed for audio data
     const float *audio_tensor_data =
         output_tensors.front().GetTensorData<float>();
-    // Still need to copy because tensor lifetime is scoped to this call,
-    // but use reserve+assign to avoid repeated allocation
-    synth->chunk_samples.assign(audio_tensor_data, audio_tensor_data + chunk->num_samples);
+    // Use memcpy for bulk copy — faster than assign/loop for contiguous memory
+    synth->chunk_samples.resize(chunk->num_samples);
+    std::memcpy(synth->chunk_samples.data(), audio_tensor_data,
+                chunk->num_samples * sizeof(float));
     chunk->samples = synth->chunk_samples.data();
 
     chunk->is_last = synth->phoneme_id_queue.empty();

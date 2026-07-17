@@ -4,12 +4,13 @@
 #include "json.hpp"
 #include "uni_algo.h"
 
-#include <map>
+#include <functional>
 #include <memory>
 #include <optional>
 #include <queue>
 #include <stdint.h>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #include <onnxruntime_cxx_api.h>
@@ -17,7 +18,10 @@
 typedef char32_t Phoneme;
 typedef int64_t PhonemeId;
 typedef int64_t SpeakerId;
-typedef std::map<Phoneme, std::vector<PhonemeId>> PhonemeIdMap;
+// Use unordered_map (hash table) instead of map (red-black tree) for O(1)
+// phoneme→id lookup. The phoneme_id_map is loaded once and queried
+// thousands of times per synthesis — hash table is measurably faster.
+typedef std::unordered_map<Phoneme, std::vector<PhonemeId>> PhonemeIdMap;
 
 const PhonemeId ID_PAD = 0; // interleaved
 const PhonemeId ID_BOS = 1; // beginning of sentence
