@@ -347,16 +347,40 @@ cd build/windows-x64/Release
 
 ## Performance
 
-### OCR (AMD Ryzen 5 7600, CPU)
-- Detection: ~50ms
-- Classification: ~10ms
-- Recognition: ~200ms
-- **Total per image: ~250ms** (tiny model)
+### Jetson Nano (aarch64, GPU)
 
-### TTS (Piper, CPU)
-- RTF: 0.089 (11x faster than real-time)
-- Synthesis: 67ms for 0.75s audio
-- Sample rate: 22050 Hz
+#### OCR — Python vs C++ (PP-OCRv6, TensorRT, 55 images / 1674 lines, `ind_cn` dataset)
+
+| Metric | Python (`rapidocr` + `tensorrt`) | C++ (`ocr-bench-cpp` + ORT TensorRT) | Speedup |
+|--------|-----------------------------------|---------------------------------------|---------|
+| Backend | TensorRT | TensorRT (FP16) | — |
+| **Model medium — elapsed** | **65.9s** | **28.0s** | **2.4x** |
+| Model tiny — elapsed | — | 16.8s | — |
+| Model small — elapsed | — | 23.2s | — |
+| CER mean | 0.081 | 0.098 | — |
+| WER mean | 0.160 | 0.212 | — |
+| RAM peak | ~6.6 GB | ~4.4 GB | **33% less** |
+
+C++ on TensorRT is 2.4× faster than Python on the same hardware at the
+same model size, with 33% lower peak RAM. The C++ tiny/small models are
+even faster (17–23 s) at a small accuracy trade-off (see per-model CER
+in the benchmark reports). Profile shapes are pinned per model so there is
+no per-image rebuild — the first run after a profile change builds the
+engine once; every subsequent run reuses the cache.
+
+#### TTS — Python vs C++ (Piper, `id_ID-news-tts-medium`, `ind_cn` GT)
+
+| Metric | Python (`rapidocr`, CPU) | C++ (`ocr-bench-cpp`, CUDA) | Notes |
+|--------|--------------------------|------------------------------|-------|
+| Backend | CPU | CUDA | — |
+| RTF mean | 0.094 | 0.325 | Python faster (CPU overhead smaller for Piper) |
+| Chars/sec | 104.6 | 87.8 | — |
+| Total elapsed | — | 458.9s | 1674 lines / 40 274 chars |
+
+Piper's ONNX model is small (60 MB) and the text→phoneme step (espeak-ng)
+runs on CPU regardless, so the GPU benefit is modest for TTS. The main
+speed gain in this rewrite is in OCR, where TensorRT + C++ gives a
+2.4× improvement over the Python TensorRT path.
 
 ### TensorRT Acceleration
 - FP16 enabled, engine cache in `models/trt_engines/`
