@@ -167,12 +167,15 @@ target_link_libraries(ocr-bench-run PRIVATE ocr_bench_core cxxopts::cxxopts)
 add_executable(ocr-bench-download cli/download_models.cpp)
 target_link_libraries(ocr-bench-download PRIVATE ocr_bench_core cxxopts::cxxopts)
 
+add_executable(ocr-bench-trt-cache cli/trt_cache.cpp)
+target_link_libraries(ocr-bench-trt-cache PRIVATE ocr_bench_core cxxopts::cxxopts)
+
 add_executable(ocr-bench-serve src/api/main.cpp src/api/api_server.cpp)
 target_link_libraries(ocr-bench-serve PRIVATE ocr_bench_core cxxopts::cxxopts)
 
 if(OCR_BENCH_USE_SYSTEM_DEPS)
     target_link_libraries(ocr-bench-serve PRIVATE cpp-httplib)
-    foreach(tgt ocr-bench-run ocr-bench-download ocr-bench-serve)
+    foreach(tgt ocr-bench-run ocr-bench-download ocr-bench-serve ocr-bench-trt-cache)
         set_target_properties(${tgt} PROPERTIES
             INSTALL_RPATH "${ORT_LIB_DIR}"
             BUILD_WITH_INSTALL_RPATH TRUE
