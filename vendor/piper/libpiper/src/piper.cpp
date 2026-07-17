@@ -118,6 +118,11 @@ struct piper_synthesizer *piper_create(const char *model_path,
     if (use_cuda) {
         OrtCUDAProviderOptions cudaOptions{};
         cudaOptions.device_id = 0;
+        // Heuristic instead of default Exhaustive: TTS sees a new input shape
+        // (phoneme count) on almost every call, so exhaustive cuDNN algo
+        // search would re-benchmark conv algorithms per line. Matches what
+        // upstream piper's Python binding passes (cudnn_conv_algo_search=HEURISTIC).
+        cudaOptions.cudnn_conv_algo_search = OrtCudnnConvAlgoSearchHeuristic;
         synth->session_options.AppendExecutionProvider_CUDA(cudaOptions);
     }
 

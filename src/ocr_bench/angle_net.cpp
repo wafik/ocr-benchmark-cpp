@@ -77,6 +77,7 @@ void AngleNet::loadModel(const std::string& modelPath, bool useCuda,
     if (useCuda) {
         OrtCUDAProviderOptions cudaOptions;
         cudaOptions.device_id = 0;
+        cudaOptions.cudnn_conv_algo_search = OrtCudnnConvAlgoSearchHeuristic;
         sessionOptions_.AppendExecutionProvider_CUDA(cudaOptions);
     }
 #ifdef _WIN32
