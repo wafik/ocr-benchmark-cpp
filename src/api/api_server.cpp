@@ -587,17 +587,10 @@ void ApiServer::registerTtsCombinedRoutes() {
     // GET /api/combined/history
     server_->Get("/api/combined/history", [this](const httplib::Request&, httplib::Response& res) {
         // Scan combined_history/ directory for *.json files (sorted by name = time).
-        // Falls back to index.json if it exists (legacy).
         std::string historyDir = config_.reportsRoot + "/combined_history";
         nlohmann::json runs = nlohmann::json::array();
-        std::string indexPath = historyDir + "/index.json";
-        if (fs::exists(indexPath)) {
-            try {
-                std::ifstream in(indexPath);
-                runs = nlohmann::json::parse(in);
-            } catch (...) {}
-        }
-        if (runs.empty() && fs::is_directory(historyDir)) {
+
+        if (fs::is_directory(historyDir)) {
             std::vector<fs::directory_entry> entries;
             for (auto& entry : fs::directory_iterator(historyDir)) {
                 if (entry.is_regular_file() && entry.path().extension() == ".json") {
@@ -608,9 +601,28 @@ void ApiServer::registerTtsCombinedRoutes() {
             for (auto& entry : entries) {
                 try {
                     std::ifstream in(entry.path());
-                    auto data = nlohmann::json::parse(in);
-                    data["_run_id"] = entry.path().stem().string();
-                    runs.push_back(data);
+                    auto raw = nlohmann::json::parse(in);
+
+                    // Transform raw combined JSON to flat format expected by UI JS.
+                    // JS expects: id, timestamp, ocr_backend, tts_backend, source,
+                    //   pages, ocr_ms_mean, tts_ms_mean, total_ms_mean, resources
+                    const auto& ocr = raw.value("ocr", nlohmann::json::object());
+                    const auto& tts = raw.value("tts", nlohmann::json::object());
+                    const auto& res_obj = ocr.value("resources", nlohmann::json::object());
+
+                    nlohmann::json row;
+                    row["id"] = entry.path().stem().string();
+                    row["timestamp"] = raw.value("last_run", "");
+                    row["ocr_backend"] = ocr.value("backend", "cpu");
+                    row["tts_backend"] = tts.value("backend", "cpu");
+                    row["source"] = "pred";
+                    row["pages"] = ocr.value("n_images", 0);
+                    row["ocr_ms_mean"] = ocr.value("total_elapsed_s", 0.0) * 1000.0;
+                    row["tts_ms_mean"] = tts.value("total_elapsed_s", 0.0) * 1000.0;
+                    row["total_ms_mean"] = raw.value("total_elapsed_s", 0.0) * 1000.0;
+                    row["resources"] = res_obj;
+
+                    runs.push_back(row);
                 } catch (...) {}
             }
         }
@@ -627,8 +639,47 @@ void ApiServer::registerTtsCombinedRoutes() {
             res.status = 404;
             return;
         }
-        std::ifstream in(path);
-        res.set_content(std::string(std::istreambuf_iterator<char>(in), {}), "application/json");
+        try {
+            std::ifstream in(path);
+            auto raw = nlohmann::json::parse(in);
+
+            // Transform raw combined JSON to format expected by UI detail panel.
+            // JS expects: overall, per_category, timestamp, dataset, source,
+            //   ocr_backend, tts_backend, resources
+            const auto& ocr = raw.value("ocr", nlohmann::json::object());
+            const auto& tts = raw.value("tts", nlohmann::json::object());
+            const auto& ocr_res = ocr.value("resources", nlohmann::json::object());
+
+            nlohmann::json out;
+            out["id"] = runId;
+            out["timestamp"] = raw.value("last_run", "");
+            out["dataset"] = ocr.value("dataset", "ind_cn");
+            out["source"] = "pred";
+            out["ocr_backend"] = ocr.value("backend", "cpu");
+            out["tts_backend"] = tts.value("backend", "cpu");
+            out["resources"] = ocr_res;
+
+            // Overall summary for detail panel cards
+            double ocr_s = ocr.value("total_elapsed_s", 0.0);
+            double tts_s = tts.value("total_elapsed_s", 0.0);
+            double total_s = raw.value("total_elapsed_s", ocr_s + tts_s);
+            nlohmann::json overall;
+            overall["pages"] = ocr.value("n_images", 0);
+            overall["ocr_ms_mean"] = ocr_s * 1000.0;
+            overall["tts_ms_mean"] = tts_s * 1000.0;
+            overall["total_ms_mean"] = total_s * 1000.0;
+            overall["overhead_ms_mean"] = (total_s - ocr_s - tts_s) * 1000.0;
+            overall["resources"] = ocr_res;
+            out["overall"] = overall;
+
+            // Per-category: not stored in combined history files, leave empty
+            out["per_category"] = nlohmann::json::array();
+
+            res.set_content(out.dump(2), "application/json");
+        } catch (...) {
+            res.status = 500;
+            res.set_content(R"({"error":"failed to parse run data"})", "application/json");
+        }
     });
 }
 
