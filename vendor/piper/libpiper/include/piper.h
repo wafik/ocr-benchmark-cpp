@@ -163,11 +163,14 @@ typedef struct piper_synthesize_options {
  * \param espeak_data_path path to the espeak-ng data
  * directory.
  *
+ * \param use_cuda if true, use CUDA execution provider; falls back to CPU.
+ *
  * \return a Piper text-to-speech synthesizer for the voice model.
  */
 EXPORT_SYMBOL
 piper_synthesizer *piper_create(const char *model_path, const char *config_path,
-                                const char *espeak_data_path);
+                                const char *espeak_data_path,
+                                bool use_cuda = false);
 
 /**
  * \brief Free resources for Piper synthesizer.

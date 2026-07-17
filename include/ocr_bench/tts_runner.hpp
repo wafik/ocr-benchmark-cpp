@@ -11,7 +11,7 @@ namespace ocr_bench {
 struct TTSRunOptions {
     std::string datasetKey;
     std::string voicePath;    // empty = use Settings default
-    bool useCuda = false;
+    bool useCuda = true;      // default: use CUDA if available, fall back to CPU
     bool verbose = true;
 };
 

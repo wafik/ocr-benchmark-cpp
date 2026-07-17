@@ -28,7 +28,8 @@ struct TTSResult {
 class TTSEngine {
 public:
     /// Load a Piper voice model. Throws on failure.
-    TTSEngine(const std::string& modelPath, const std::string& espeakDataPath);
+    TTSEngine(const std::string& modelPath, const std::string& espeakDataPath,
+              bool useCuda = false);
     ~TTSEngine();
 
     TTSEngine(const TTSEngine&) = delete;

@@ -25,7 +25,8 @@ using json = nlohmann::json;
 
 struct piper_synthesizer *piper_create(const char *model_path,
                                        const char *config_path,
-                                       const char *espeak_data_path) {
+                                       const char *espeak_data_path,
+                                       bool use_cuda) {
     // onnx
     static Ort::Env ort_env{ ORT_LOGGING_LEVEL_WARNING, "piper" };
 
@@ -112,6 +113,12 @@ struct piper_synthesizer *piper_create(const char *model_path,
     synth->session_options.DisableCpuMemArena();
     synth->session_options.DisableMemPattern();
     synth->session_options.DisableProfiling();
+
+    if (use_cuda) {
+        OrtCUDAProviderOptions cudaOptions{};
+        cudaOptions.device_id = 0;
+        synth->session_options.AppendExecutionProvider_CUDA(cudaOptions);
+    }
 
     #if !defined (WIN32) // ort on WIN32 uses wchar_t
     auto model_path_ort = model_path;

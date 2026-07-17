@@ -17,10 +17,11 @@ struct TTSEngine::Impl {
     }
 };
 
-TTSEngine::TTSEngine(const std::string& modelPath, const std::string& espeakDataPath)
+TTSEngine::TTSEngine(const std::string& modelPath, const std::string& espeakDataPath,
+                     bool useCuda)
     : impl_(std::make_unique<Impl>())
 {
-    impl_->synth = piper_create(modelPath.c_str(), nullptr, espeakDataPath.c_str());
+    impl_->synth = piper_create(modelPath.c_str(), nullptr, espeakDataPath.c_str(), useCuda);
     if (!impl_->synth) {
         throw std::runtime_error("Failed to create Piper synthesizer for: " + modelPath);
     }

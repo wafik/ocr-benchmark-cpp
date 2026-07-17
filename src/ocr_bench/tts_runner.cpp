@@ -50,8 +50,8 @@ nlohmann::json ttsRun(const TTSRunOptions& options) {
     fs::create_directories(reportsRoot);
     std::string statusPath = reportsRoot.string() + "/.tts_status.json";
 
-    // Load TTS engine
-    TTSEngine engine(voicePath, espeakDataPath());
+    // Load TTS engine — use CUDA if available and requested, else CPU
+    TTSEngine engine(voicePath, espeakDataPath(), useCuda);
 
     auto [datasetKey, root] = resolveDatasetRoot(options.datasetKey);
     auto categories = listCategories(root);
