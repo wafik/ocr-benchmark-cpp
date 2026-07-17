@@ -510,6 +510,8 @@ void ApiServer::registerTtsCombinedRoutes() {
         }
         TTSRunOptions opts;
         if (req.has_param("dataset")) opts.datasetKey = req.get_param_value("dataset");
+        auto numWorkers = parseQueryParam<int>(req, "num_workers");
+        if (numWorkers) opts.numWorkers = *numWorkers;
         opts.verbose = false;
         std::thread([opts]() {
             try { ttsRun(opts); } catch (...) {}
