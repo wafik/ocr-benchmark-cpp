@@ -79,6 +79,27 @@ std::pair<std::vector<int16_t>, TTSResult> TTSEngine::synthesize(const std::stri
     return {allSamples, result};
 }
 
+BatchSynthesizeResult TTSEngine::synthesizeBatch(const std::vector<std::string>& texts) {
+    BatchSynthesizeResult batch;
+    batch.results.reserve(texts.size());
+    auto batchStart = std::chrono::steady_clock::now();
+
+    for (const auto& text : texts) {
+        auto [pcm, result] = synthesize(text);
+        batch.results.push_back({
+            text,
+            result.synthMs,
+            result.audioSeconds,
+            result.nChars,
+            result.sampleRate,
+        });
+    }
+
+    batch.totalSynthMs = std::chrono::duration<float, std::milli>(
+        std::chrono::steady_clock::now() - batchStart).count();
+    return batch;
+}
+
 std::vector<uint8_t> TTSEngine::pcmToWav(const std::vector<int16_t>& pcm, int sampleRate) {
     int dataSize = static_cast<int>(pcm.size() * 2);
     int fileSize = 44 + dataSize;

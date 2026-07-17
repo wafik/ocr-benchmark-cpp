@@ -1,6 +1,9 @@
 #include "ocr_bench/paths.hpp"
 
 #include <filesystem>
+#ifdef _WIN32
+#include <windows.h>
+#endif
 
 namespace fs = std::filesystem;
 
@@ -13,6 +16,40 @@ std::string packageRoot() {
     // adjusted for this project's one-extra-level nesting (cpp/rebuild/src/ocr_bench/).
     fs::path here = fs::path(__FILE__).parent_path();       // src/ocr_bench
     return here.parent_path().parent_path().string();       // cpp/rebuild
+}
+
+std::string executableDir() {
+#ifdef _WIN32
+    char buf[MAX_PATH];
+    GetModuleFileNameA(nullptr, buf, MAX_PATH);
+    return fs::path(buf).parent_path().string();
+#else
+    // Linux: /proc/self/exe
+    char buf[4096];
+    ssize_t len = readlink("/proc/self/exe", buf, sizeof(buf) - 1);
+    if (len <= 0) return ".";
+    buf[len] = '\0';
+    return fs::path(buf).parent_path().string();
+#endif
+}
+
+std::string ttsWorkerBinary() {
+    std::string name =
+#ifdef _WIN32
+        "ocr-bench-tts-worker.exe";
+#else
+        "ocr-bench-tts-worker";
+#endif
+    fs::path workerPath = fs::path(executableDir()) / name;
+    if (fs::exists(workerPath)) {
+        return workerPath.string();
+    }
+    // Fallback: look in packageRoot build dir
+    fs::path buildPath = fs::path(packageRoot()) / "build" / "jetson" / name;
+    if (fs::exists(buildPath)) {
+        return buildPath.string();
+    }
+    return workerPath.string(); // let caller handle missing file
 }
 
 const std::map<std::string, std::string>& datasetRegistry() {

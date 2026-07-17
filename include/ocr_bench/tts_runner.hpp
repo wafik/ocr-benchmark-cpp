@@ -13,6 +13,8 @@ struct TTSRunOptions {
     std::string voicePath;    // empty = use Settings default
     bool useCuda = true;      // default: use CUDA if available, fall back to CPU
     bool verbose = true;
+    int batchSize = 1;        // lines per batch (1 = no batching)
+    int numWorkers = 0;       // 0 = sequential, N = parallel worker processes
 };
 
 /// Run TTS benchmark: synthesize all GT text lines, measure RTF.

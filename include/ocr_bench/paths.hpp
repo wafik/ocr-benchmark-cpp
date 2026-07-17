@@ -9,6 +9,12 @@ namespace ocr_bench {
 /// is built from. Mirrors Python's `PACKAGE_ROOT` in paths.py.
 std::string packageRoot();
 
+/// Directory containing the current executable.
+std::string executableDir();
+
+/// Path to the TTS worker binary (ocr-bench-tts-worker).
+std::string ttsWorkerBinary();
+
 /// Registry key -> dataset root on disk. Add new datasets here — every
 /// other layer (API, runner, UI) reads from this map.
 const std::map<std::string, std::string>& datasetRegistry();
