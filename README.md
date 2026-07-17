@@ -384,6 +384,20 @@ parallel achieves better throughput via process isolation. The main
 speed gain in this rewrite remains OCR: TensorRT + C++ gives 1.7–2.4×
 improvement over Python.
 
+#### Combined (OCR + TTS) — Jetson Nano, tiny model, full dataset
+
+| Phase | Python (CPU) | C++ (TensorRT + CUDA) | Notes |
+|-------|-------------|----------------------|-------|
+| OCR (55 images) | 66.0s | **13.5s** | C++ 4.9× faster |
+| TTS (1674 lines) | ~150s | 428.3s | Sequential (RAM limit) |
+| **Total** | **~216s** | **442.9s** | Python faster overall |
+
+C++ combined is slower overall because TTS runs sequentially in combined
+mode (OCR + TTS engines share ~5GB RAM on Jetson, leaving no room for
+parallel TTS workers). The OCR phase is 4.9× faster, but TTS dominates
+the total time. TTS-only runs with 4 parallel workers achieve 115.7
+chars/sec vs Python's 104.6.
+
 ### TensorRT Acceleration
 - FP16 enabled, engine cache in `models/trt_engines/`
 - Explicit profile shapes (`trt_profile_min/opt/max_shapes`) are pinned per
