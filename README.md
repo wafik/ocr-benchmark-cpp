@@ -8,7 +8,8 @@ Rewrite dari `ocr-benchmark` (Python) ke C++. Performa lebih tinggi, dependency 
 - **TTS Engine**: Piper TTS (Bahasa Indonesia + English)
 - **HTTP Dashboard**: cpp-httplib server dengan UI yang sama dengan Python
 - **CLI Tools**: Benchmark runner, model downloader
-- **TensorRT Support**: Auto-detection + FP16 + engine caching
+- **TensorRT Support**: Auto-detection + FP16 + engine caching with pinned
+  profile shapes (no rebuild per image size, see TensorRT Acceleration below)
 - **Auth Middleware**: Basic Auth configurable
 
 ## Arsitektur
@@ -257,8 +258,9 @@ cd build/windows-x64/Release
 # Run specific category
 ./ocr-bench-run.exe --category "BILLS"
 
-# Run with TensorRT acceleration
-./ocr-bench-run.exe --use-tensorrt
+# TensorRT is on by default on Jetson (Settings.useTensorrt = true).
+# To force CPU/CUDA-only for a run, set USE_TENSORRT=false in .env
+# (there is no --use-tensorrt CLI flag; the override is env/API-only).
 
 # Run with custom settings
 ./ocr-bench-run.exe --ocr-version PP-OCRv6 --model-type tiny --dataset ind_cn
@@ -284,6 +286,8 @@ cd build/windows-x64/Release
 ### OCR Run
 - `POST /api/run` → Start benchmark run
   - Params: `category`, `ocr_version`, `model_type`, `force`, `use_tensorrt`
+    (`use_tensorrt` defaults to `Settings.useTensorrt`, i.e. `true` on
+    Jetson, if omitted)
 - `GET /api/summary` → Overall summary
 - `GET /api/results/{category}` → Per-category results
 - `GET /api/image/{category}/{filename}` → Source image
@@ -355,9 +359,20 @@ cd build/windows-x64/Release
 - Sample rate: 22050 Hz
 
 ### TensorRT Acceleration
-- First run: ~30s model compilation (cached to `models/trt_engines/`)
-- Subsequent runs: ~2-3x faster inference
-- FP16 enabled for better performance
+- FP16 enabled, engine cache in `models/trt_engines/`
+- Explicit profile shapes (`trt_profile_min/opt/max_shapes`) are pinned per
+  model (det/rec/cls) so the engine cache covers the full input size range
+  in one build — ORT no longer rebuilds the engine every time an image with
+  a different resolution/aspect ratio comes through. See
+  `TENSORRT_ENGINE_PORT_PLAN.md` for the (currently unused) alternative of
+  bypassing ONNX Runtime and driving TensorRT directly.
+- First run per model size after a profile-shape change: ~2-9 min (one-time
+  engine build). All runs after that: ~15-30s for the 55-image `ind_cn`
+  dataset, regardless of model size (tiny/small/medium) or image variety.
+- `useTensorrt` in `RunOptions`/`/api/run` now correctly falls back to
+  `Settings.useTensorrt` (default `true`) when no override is given — a
+  prior bug in `runner.cpp` silently ignored the setting and always ran on
+  CUDA instead.
 
 ## Test Results
 
