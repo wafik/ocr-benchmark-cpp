@@ -586,13 +586,33 @@ void ApiServer::registerTtsCombinedRoutes() {
 
     // GET /api/combined/history
     server_->Get("/api/combined/history", [this](const httplib::Request&, httplib::Response& res) {
-        std::string indexPath = config_.reportsRoot + "/combined_history/index.json";
+        // Scan combined_history/ directory for *.json files (sorted by name = time).
+        // Falls back to index.json if it exists (legacy).
+        std::string historyDir = config_.reportsRoot + "/combined_history";
         nlohmann::json runs = nlohmann::json::array();
+        std::string indexPath = historyDir + "/index.json";
         if (fs::exists(indexPath)) {
             try {
                 std::ifstream in(indexPath);
                 runs = nlohmann::json::parse(in);
             } catch (...) {}
+        }
+        if (runs.empty() && fs::is_directory(historyDir)) {
+            std::vector<fs::directory_entry> entries;
+            for (auto& entry : fs::directory_iterator(historyDir)) {
+                if (entry.is_regular_file() && entry.path().extension() == ".json") {
+                    entries.push_back(entry);
+                }
+            }
+            std::sort(entries.begin(), entries.end());
+            for (auto& entry : entries) {
+                try {
+                    std::ifstream in(entry.path());
+                    auto data = nlohmann::json::parse(in);
+                    data["_run_id"] = entry.path().stem().string();
+                    runs.push_back(data);
+                } catch (...) {}
+            }
         }
         std::reverse(runs.begin(), runs.end());
         res.set_content(nlohmann::json{{"runs", runs}}.dump(), "application/json");
