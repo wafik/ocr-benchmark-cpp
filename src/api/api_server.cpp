@@ -453,7 +453,7 @@ TTSEngine* ApiServer::getTtsEngine(httplib::Response& res) {
     }
     std::string espeakPath = (fs::path(packageRoot()) / "models/espeak-ng-data").string();
     try {
-        ttsEngine_ = new TTSEngine(voicePath, espeakPath);
+        ttsEngine_ = new TTSEngine(voicePath, espeakPath, s.useCudaTts);
     } catch (const std::exception& e) {
         res.status = 503;
         res.set_content(nlohmann::json{{"detail", std::string("TTS voice failed to load: ") + e.what()}}.dump(), "application/json");

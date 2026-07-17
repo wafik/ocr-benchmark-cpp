@@ -111,8 +111,12 @@ struct piper_synthesizer *piper_create(const char *model_path,
     }
 
     // Load onnx model
-    synth->session_options.DisableCpuMemArena();
-    synth->session_options.DisableMemPattern();
+    // NOTE: upstream piper1-gpl disables the CPU mem arena + mem pattern
+    // unconditionally. That's fine for a one-shot CLI call, but this
+    // benchmark calls synthesize() ~1700 times per run — with CUDA EP,
+    // several nodes still execute on CPU (see Memcpy nodes in session log),
+    // so disabling the arena forces a fresh OS-level alloc/free on every
+    // single call instead of reusing a pool. Keep it enabled here.
     synth->session_options.DisableProfiling();
 
     if (use_cuda) {

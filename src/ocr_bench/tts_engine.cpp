@@ -64,9 +64,12 @@ std::pair<std::vector<int16_t>, TTSResult> TTSEngine::synthesize(const std::stri
     auto elapsed = std::chrono::duration<float, std::milli>(
         std::chrono::steady_clock::now() - t0).count();
 
-    int bytesPerSec = 2 * impl_->sampleRate;
+    // allSamples.size() is a sample COUNT (vector<int16_t>), not a byte count —
+    // divide by sampleRate directly, not by bytesPerSec (which double-counted
+    // the 2-bytes-per-sample factor and halved every audio_seconds value,
+    // silently doubling every RTF/chars-per-sec figure in the benchmark).
     float audioSeconds = allSamples.empty() ? 0.0f
-        : static_cast<float>(allSamples.size()) / bytesPerSec;
+        : static_cast<float>(allSamples.size()) / impl_->sampleRate;
 
     TTSResult result;
     result.text = text;

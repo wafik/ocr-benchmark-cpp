@@ -2,6 +2,7 @@
 // Reads JSON Lines from stdin, synthesizes each line, writes results to stdout.
 // Protocol: {"id":42,"text":"..."} -> {"id":42,"synth_ms":120,"audio_seconds":0.5,...}
 // Exits on EOF (stdin closed by parent).
+#include <cstdio>
 #include <iostream>
 #include <string>
 #include <vector>
@@ -13,6 +14,12 @@
 #include "ocr_bench/paths.hpp"
 
 int main(int argc, char* argv[]) {
+    // When stdout is a pipe (parent process reads it), iostream defaults to
+    // full buffering (4KB) — parent's fgets() blocks forever waiting for data
+    // that's stuck in the child's buffer. Force line buffering so each
+    // result line is flushed immediately after std::endl.
+    setvbuf(stdout, nullptr, _IOLBF, 0);
+
     cxxopts::Options opts("ocr-bench-tts-worker", "TTS worker for parallel synthesis");
     opts.add_options()
         ("voice", "Path to Piper voice .onnx", cxxopts::value<std::string>())
