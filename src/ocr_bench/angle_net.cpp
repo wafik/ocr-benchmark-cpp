@@ -3,6 +3,7 @@
 #include "ocr_bench/angle_net.hpp"
 
 #include <numeric>
+#include <unordered_map>
 
 #include <opencv2/imgproc.hpp>
 
@@ -54,15 +55,23 @@ void AngleNet::loadModel(const std::string& modelPath, bool useCuda,
     sessionOptions_.SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_ALL);
 
     if (useTensorrt) {
-        OrtTensorRTProviderOptions trtOpts{};
-        trtOpts.device_id = 0;
-        trtOpts.trt_max_workspace_size = 1ULL << 30;
-        trtOpts.trt_fp16_enable = 1;
-        trtOpts.trt_engine_cache_enable = 1;
+        Ort::TensorRTProviderOptions trtOpts;
+        std::unordered_map<std::string, std::string> opts = {
+            {"device_id", "0"},
+            {"trt_max_workspace_size", "1073741824"},
+            {"trt_fp16_enable", "1"},
+            {"trt_engine_cache_enable", "1"},
+            // Input is always resized to kDstWidth x kDstHeight (192x48)
+            // before inference, so min=opt=max — one shape, ever.
+            {"trt_profile_min_shapes", "x:1x3x48x192"},
+            {"trt_profile_opt_shapes", "x:1x3x48x192"},
+            {"trt_profile_max_shapes", "x:1x3x48x192"},
+        };
         if (!trtCacheDir.empty()) {
-            trtOpts.trt_engine_cache_path = trtCacheDir.c_str();
+            opts["trt_engine_cache_path"] = trtCacheDir;
         }
-        sessionOptions_.AppendExecutionProvider_TensorRT(trtOpts);
+        trtOpts.Update(opts);
+        sessionOptions_.AppendExecutionProvider_TensorRT_V2(*trtOpts);
     }
 
     if (useCuda) {

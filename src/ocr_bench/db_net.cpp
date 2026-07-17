@@ -3,6 +3,7 @@
 #include "ocr_bench/db_net.hpp"
 
 #include <numeric>
+#include <unordered_map>
 
 #include <opencv2/imgproc.hpp>
 
@@ -92,15 +93,24 @@ void DbNet::loadModel(const std::string& modelPath, bool useCuda,
 
     // TensorRT must be appended BEFORE CUDA (ORT tries providers in order)
     if (useTensorrt) {
-        OrtTensorRTProviderOptions trtOpts{};
-        trtOpts.device_id = 0;
-        trtOpts.trt_max_workspace_size = 1ULL << 30; // 1GB
-        trtOpts.trt_fp16_enable = 1;
-        trtOpts.trt_engine_cache_enable = 1;
+        Ort::TensorRTProviderOptions trtOpts;
+        std::unordered_map<std::string, std::string> opts = {
+            {"device_id", "0"},
+            {"trt_max_workspace_size", "1073741824"}, // 1GB
+            {"trt_fp16_enable", "1"},
+            {"trt_engine_cache_enable", "1"},
+            // Fixed profile range covers detLimitSideLen (default 1536) and
+            // larger inputs without triggering an ORT TRT rebuild per image
+            // shape (see TENSORRT_ENGINE_PORT_PLAN.md Opsi 1).
+            {"trt_profile_min_shapes", "x:1x3x32x32"},
+            {"trt_profile_opt_shapes", "x:1x3x1536x1536"},
+            {"trt_profile_max_shapes", "x:1x3x2048x2048"},
+        };
         if (!trtCacheDir.empty()) {
-            trtOpts.trt_engine_cache_path = trtCacheDir.c_str();
+            opts["trt_engine_cache_path"] = trtCacheDir;
         }
-        sessionOptions_.AppendExecutionProvider_TensorRT(trtOpts);
+        trtOpts.Update(opts);
+        sessionOptions_.AppendExecutionProvider_TensorRT_V2(*trtOpts);
     }
 
     if (useCuda) {
