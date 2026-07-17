@@ -144,19 +144,22 @@ int autoDetectWorkers(bool useCuda) {
     int cores = static_cast<int>(std::thread::hardware_concurrency());
     if (cores <= 0) cores = 2;
 
-    // Rough estimate: each worker uses ~300-500MB (piper model + ORT session)
-    // On Jetson with 7.5GB, limit to 2 workers max
-    int maxByRam = 2;
+    // Use available RAM (not total) — each worker uses ~1.2GB (piper model +
+    // ORT session + CUDA context). On Jetson with 7.5GB total but often only
+    // 2-3GB available, this prevents OOM.
+    int maxByRam = 1;
 #ifdef __linux__
     std::ifstream meminfo("/proc/meminfo");
     std::string line;
+    long availablekB = 0;
     while (std::getline(meminfo, line)) {
-        if (line.find("MemTotal:") == 0) {
-            long kB = 0;
-            sscanf(line.c_str(), "MemTotal: %ld kB", &kB);
-            maxByRam = std::max(1, static_cast<int>(kB / (400 * 1024))); // ~400MB per worker
+        if (line.find("MemAvailable:") == 0) {
+            sscanf(line.c_str(), "MemAvailable: %ld kB", &availablekB);
             break;
         }
+    }
+    if (availablekB > 0) {
+        maxByRam = std::max(1, static_cast<int>(availablekB / (1200 * 1024))); // ~1.2GB per worker
     }
 #endif
     return std::max(1, std::min(cores, maxByRam));
