@@ -238,8 +238,8 @@ nlohmann::json run(const RunOptions& options) {
     engineCfg.detUnclipRatio = ov.detUnclipRatio.value_or(settings.detUnclipRatio);
     engineCfg.detLimitSideLen = ov.detLimitSideLen.value_or(settings.detLimitSideLen);
     engineCfg.useAngleCls = ov.useAngleCls.value_or(settings.useAngleCls);
-    engineCfg.useCuda = ov.useTensorrt.value_or(false) || detectCuda();
-    engineCfg.useTensorrt = ov.useTensorrt.value_or(false);
+    engineCfg.useTensorrt = ov.useTensorrt.value_or(settings.useTensorrt);
+    engineCfg.useCuda = engineCfg.useTensorrt || detectCuda();
     engineCfg.trtCacheDir = (fs::path(packageRoot()) / "models" / "trt_engines").string();
     engineCfg.modelsDir = packageRoot() + "/models";
 
